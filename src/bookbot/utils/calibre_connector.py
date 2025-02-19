@@ -13,24 +13,43 @@ class LibraryWatcher(FileSystemEventHandler):
         self._loop = asyncio.get_event_loop()
         self._queue = asyncio.Queue()
         self._task = None
+        self._running = True
+        self._shutdown = False
         
     async def _process_events(self):
         try:
-            while True:
-                event = await self._queue.get()
-                if event is None:  # Shutdown signal
-                    break
-                print(f"DEBUG: Processing event: {event}")
+            while not self._shutdown:
                 try:
-                    await self.callback()
-                    print("DEBUG: Callback completed successfully")
-                except Exception as e:
-                    print(f"DEBUG: Callback error: {e}")
-                finally:
-                    self._queue.task_done()
+                    event = await asyncio.wait_for(self._queue.get(), timeout=0.1)
+                    if event is None:  # Shutdown signal
+                        break
+                    print(f"DEBUG: Processing event: {event}")
+                    try:
+                        if not self._shutdown:
+                            await self.callback()
+                            print("DEBUG: Callback completed successfully")
+                    except Exception as e:
+                        print(f"DEBUG: Callback error: {e}")
+                    finally:
+                        self._queue.task_done()
+                except asyncio.TimeoutError:
+                    if self._shutdown:
+                        break
+                    continue
+                except RuntimeError as e:
+                    if "Event loop is closed" in str(e) or self._shutdown:
+                        break
         except asyncio.CancelledError:
             print("DEBUG: Event processor cancelled")
-            raise
+        finally:
+            self._running = False
+            # Drain the queue
+            while not self._queue.empty():
+                try:
+                    self._queue.get_nowait()
+                    self._queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
     
     def on_modified(self, event: FileModifiedEvent) -> None:
         if not event.src_path.endswith("metadata.db"):
@@ -55,15 +74,30 @@ class LibraryWatcher(FileSystemEventHandler):
             
     def cleanup(self):
         """Clean up the event processor task."""
+        self._shutdown = True
         if self._task and not self._task.done():
             try:
+                # Signal shutdown
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        self._queue.put(None), self._loop
+                    )
+                    future.result(timeout=0.1)
+                except Exception:
+                    pass
+                
+                # Cancel the task
                 self._loop.call_soon_threadsafe(self._task.cancel)
+                
+                # Wait briefly for cancellation
                 try:
                     self._task.result(timeout=0.1)
                 except Exception:
                     pass
             finally:
                 self._task = None
+                # Create a new queue to prevent any lingering tasks
+                self._queue = asyncio.Queue()
 
 class CalibreConnector:
     def __init__(self, library_path: Path):
