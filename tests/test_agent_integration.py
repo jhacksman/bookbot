@@ -18,14 +18,16 @@ async def db_session():
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    return async_session
+    async with async_session() as session:
+        yield session
+    await engine.dispose()
 
 @pytest.fixture
-async def venice_config():
+def venice_config():
     return VeniceConfig(api_key="test_key")
 
 @pytest.fixture
-async def vram_manager():
+def vram_manager():
     return VRAMManager(total_vram=64.0)
 
 @pytest.mark.asyncio
