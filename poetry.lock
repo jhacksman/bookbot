@@ -2488,6 +2488,21 @@ docs = ["sphinx (>=5.3)", "sphinx-rtd-theme (>=1.0)"]
 testing = ["coverage (>=6.2)", "hypothesis (>=5.7.1)"]
 
 [[package]]
+name = "pytest-split"
+version = "0.8.2"
+description = "Pytest plugin which splits the test suite to equally sized sub suites based on test execution time."
+optional = false
+python-versions = ">=3.7.1,<4.0"
+groups = ["main"]
+files = [
+    {file = "pytest_split-0.8.2-py3-none-any.whl", hash = "sha256:b7fa704659cb224b9f7f5c24536bc04eff351f42d852bf0312e03774fd9c0972"},
+    {file = "pytest_split-0.8.2.tar.gz", hash = "sha256:446f330e3607572027f3861058c27d9b3eaa80d83dc86675abe2978bbf50c02f"},
+]
+
+[package.dependencies]
+pytest = ">=5,<9"
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 description = "Extensions to the standard Python datetime module"
@@ -3410,4 +3425,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "c3f3c5e91e62e65c68fcb9ce6edca2e2e5d4d0ff6f0992c02ae841510bf7a7f2"
+content-hash = "75db432b6c679b8fbe676390028f8a4d3dec220f495e54099645fddaeb5eaa15"
