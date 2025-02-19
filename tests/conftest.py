@@ -13,20 +13,28 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 @pytest.fixture
 async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """Fixture that provides an async SQLAlchemy session."""
-    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    session_maker = async_sessionmaker(
-        engine, expire_on_commit=False
+    engine: AsyncEngine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=3600
     )
     
-    async with session_maker() as session:
-        yield session
-        await session.rollback()
-    
-    await engine.dispose()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        session_maker = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+            class_=AsyncSession
+        )
+        
+        async with session_maker() as session:
+            yield session
+            await session.rollback()
+    finally:
+        await engine.dispose()
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):

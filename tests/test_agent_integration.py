@@ -107,11 +107,20 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         assert query_result["confidence"] > 0.0
     finally:
         # Cleanup agents in reverse order
+        cleanup_tasks = []
         for agent in reversed(agents):
+            if agent.is_active:
+                cleanup_tasks.append(agent.cleanup())
+        
+        if cleanup_tasks:
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+        
+        # Release any remaining VRAM allocations
+        for alloc in [selection_alloc, summarization_alloc, librarian_alloc, query_alloc]:
             try:
-                await agent.cleanup()
-            except Exception as e:
-                print(f"Error cleaning up agent: {e}")
+                await alloc.__aexit__(None, None, None)
+            except:
+                pass
 
 @pytest.mark.asyncio
 async def test_vram_limits(venice_config, vram_manager):
