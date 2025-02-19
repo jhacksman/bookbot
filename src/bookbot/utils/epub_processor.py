@@ -37,7 +37,7 @@ class EPUBProcessor:
                 for item in items:
                     if not hasattr(item, 'id'):
                         item.id = f'item_{len(book.spine)}'
-                    book.spine.append((item.id, 'yes'))
+                    book.spine.append(item.id)
 
             except Exception as e:
                 raise RuntimeError(f"Failed to read EPUB file: {str(e)}")
