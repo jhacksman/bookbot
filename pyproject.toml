@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "bookbot"
+version = "0.1.0"
+description = "Autonomous AI Research and Library System"
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.109.0"
+pydantic = "^2.5.3"
+venice-ai = "^0.1.0"
+calibre-lib = "^0.1.0"
+sqlalchemy = "^2.0.25"
+chromadb = "^0.4.22"
+pytest = "^7.4.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
