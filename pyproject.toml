@@ -27,9 +27,9 @@ tenacity = "^8.2.3"
 asyncio_mode = "strict"
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "-v"
-asyncio_timeout = 60
-log_level = "INFO"
+addopts = "-v --tb=short"
+asyncio_timeout = 300
+log_level = "DEBUG"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

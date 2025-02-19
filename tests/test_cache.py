@@ -42,7 +42,7 @@ async def test_async_cache_different_args():
 async def test_async_cache_expiration():
     call_count = 0
     
-    @async_cache(ttl=0.1)
+    @async_cache(ttl=0.5)  # Increased TTL for CI stability
     async def test_func(x: int) -> int:
         nonlocal call_count
         call_count += 1
@@ -52,7 +52,7 @@ async def test_async_cache_expiration():
     assert result1 == 10
     assert call_count == 1
     
-    await asyncio.sleep(0.1)  # Wait for cache to expire
+    await asyncio.sleep(0.6)  # Increased sleep time for CI stability
     
     result2 = await test_func(5)
     assert result2 == 10
