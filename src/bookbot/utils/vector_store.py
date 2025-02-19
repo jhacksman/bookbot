@@ -21,8 +21,7 @@ class VectorStore:
             is_persistent=True,
             anonymized_telemetry=False,
             allow_reset=False,
-            chroma_db_impl="duckdb+parquet",
-            persist_interval=5
+            chroma_db_impl="duckdb+parquet"
         )
         
         try:
