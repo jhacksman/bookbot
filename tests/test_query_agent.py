@@ -11,13 +11,15 @@ async def db_session():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    async_session = sessionmaker(
+    session_factory = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    async with async_session() as session:
+    session = await session_factory()
+    try:
         yield session
+    finally:
         await session.close()
-    await engine.dispose()
+        await engine.dispose()
 
 @pytest.mark.asyncio
 async def test_query_agent_initialization(db_session):
