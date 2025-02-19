@@ -23,10 +23,6 @@ async def db_session():
     await engine.dispose()
 
 @pytest.fixture
-def venice_config():
-    return VeniceConfig(api_key="test_key")
-
-@pytest.fixture
 def vram_manager():
     return VRAMManager(total_vram=64.0)
 

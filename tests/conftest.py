@@ -1,6 +1,53 @@
 import pytest
+from unittest.mock import AsyncMock
 from bookbot.utils.resource_manager import VRAMManager
+from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from typing import Dict, Any
+
+@pytest.fixture
+def mock_venice_client(monkeypatch):
+    class MockVeniceClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def generate(self, prompt: str, *args, **kwargs):
+            if "hierarchical" in prompt.lower():
+                return {
+                    "choices": [{
+                        "text": "A detailed summary of the content at the specified level."
+                    }]
+                }
+            elif "evaluate" in prompt.lower():
+                return {
+                    "choices": [{
+                        "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
+                    }]
+                }
+            else:
+                return {
+                    "choices": [{
+                        "text": '{"answer": "A detailed response", "citations": [], "confidence": 0.9}'
+                    }]
+                }
+
+        async def embed(self, texts: list, *args, **kwargs):
+            return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(texts) if isinstance(texts, list) else 1)]}
+
+    # Patch VeniceClient in all modules
+    for module in [
+        "bookbot.utils.venice_client",
+        "bookbot.agents.selection.agent",
+        "bookbot.agents.summarization.agent",
+        "bookbot.agents.librarian.agent",
+        "bookbot.agents.query.agent"
+    ]:
+        monkeypatch.setattr(f"{module}.VeniceClient", MockVeniceClient)
+    
+    return MockVeniceClient()
+
+@pytest.fixture
+def venice_config(mock_venice_client):
+    return VeniceConfig(api_key="test_key")
 
 @pytest.fixture
 def vram_manager():
