@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.agents.summarization.agent import SummarizationAgent
 from bookbot.agents.librarian.agent import LibrarianAgent
