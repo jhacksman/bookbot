@@ -19,6 +19,8 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          poetry run pytest -v --capture=no --log-cli-level=DEBUG
+          poetry run pytest -v --capture=no
         env:
           PYTHONUNBUFFERED: "1"
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "true"
+          PYTEST_ADDOPTS: "--no-cov --no-header --tb=short"
