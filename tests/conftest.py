@@ -6,25 +6,25 @@ from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from bookbot.database.models import Base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
 import aiosqlite
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 
 @pytest.fixture
-async def async_session():
+async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """Fixture that provides an async SQLAlchemy session."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
+    session_maker = async_sessionmaker(
+        engine, expire_on_commit=False
     )
     
-    async with async_session() as session:
+    async with session_maker() as session:
         yield session
         await session.rollback()
-        await session.close()
     
     await engine.dispose()
 

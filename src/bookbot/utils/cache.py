@@ -35,7 +35,8 @@ def async_cache(ttl: int = 3600):
             
             return result
         
-        wrapper.cache = cache
-        wrapper.clear_cache = lambda: cache.clear()
+        # Add cache and clear_cache as attributes to the wrapper function
+        setattr(wrapper, 'cache', cache)
+        setattr(wrapper, 'clear_cache', lambda: cache.clear())
         return wrapper
     return decorator

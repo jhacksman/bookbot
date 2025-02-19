@@ -38,7 +38,9 @@ class TokenTracker:
             )
     
     def _log_usage(self, input_tokens: int, output_tokens: int) -> None:
-        with open(self.log_file, 'a') as f:
+        if self.log_file is None:
+            return
+        with open(str(self.log_file), 'a') as f:
             json.dump({
                 'timestamp': time(),
                 'input_tokens': input_tokens,

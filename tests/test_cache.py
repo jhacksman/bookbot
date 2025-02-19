@@ -83,7 +83,7 @@ async def test_async_cache_complex_args():
     call_count = 0
     
     @async_cache(ttl=1)
-    async def test_func(x: dict, y: list = None) -> int:
+    async def test_func(x: dict, y: list | None = None) -> int:
         nonlocal call_count
         call_count += 1
         return len(str(x)) + (len(y) if y else 0)

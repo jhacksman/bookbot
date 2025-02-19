@@ -10,15 +10,15 @@ from sqlalchemy.orm import sessionmaker
 from bookbot.database.models import Base
 
 @pytest.fixture
-async def db_session():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
+    session_maker = async_sessionmaker(
+        engine, expire_on_commit=False
     )
-    async with async_session() as session:
+    async with session_maker() as session:
         yield session
     await engine.dispose()
 
@@ -27,7 +27,7 @@ def vram_manager():
     return VRAMManager(total_vram=64.0)
 
 @pytest.mark.asyncio
-async def test_selection_agent_vram(venice_config, vram_manager):
+async def test_selection_agent_vram(venice_config: VeniceConfig, vram_manager: VRAMManager):
     agent = SelectionAgent(venice_config, vram_limit=16.0)
     async with vram_manager.allocate("selection_agent", 16.0):
         await agent.initialize()
@@ -53,7 +53,7 @@ async def test_selection_agent_vram(venice_config, vram_manager):
         assert not agent.is_active
 
 @pytest.mark.asyncio
-async def test_summarization_agent_vram(venice_config, vram_manager):
+async def test_summarization_agent_vram(venice_config: VeniceConfig, vram_manager: VRAMManager):
     agent = SummarizationAgent(venice_config, vram_limit=16.0)
     async with vram_manager.allocate("summarization_agent", 16.0):
         await agent.initialize()
@@ -84,7 +84,7 @@ async def test_summarization_agent_vram(venice_config, vram_manager):
         assert not agent.is_active
 
 @pytest.mark.asyncio
-async def test_librarian_agent_vram(venice_config, vram_manager, db_session):
+async def test_librarian_agent_vram(venice_config: VeniceConfig, vram_manager: VRAMManager, db_session: AsyncSession):
     agent = LibrarianAgent(venice_config, db_url="sqlite+aiosqlite:///:memory:", vram_limit=16.0)
     async with vram_manager.allocate("librarian_agent", 16.0):
         await agent.initialize()
@@ -114,7 +114,7 @@ async def test_librarian_agent_vram(venice_config, vram_manager, db_session):
         assert not agent.is_active
 
 @pytest.mark.asyncio
-async def test_query_agent_vram(venice_config, vram_manager, db_session):
+async def test_query_agent_vram(venice_config: VeniceConfig, vram_manager: VRAMManager, db_session: AsyncSession):
     agent = QueryAgent(venice_config, db_session, vram_limit=16.0)
     async with vram_manager.allocate("query_agent", 16.0):
         await agent.initialize()
