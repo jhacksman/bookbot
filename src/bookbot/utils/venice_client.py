@@ -13,6 +13,14 @@ class VeniceConfig(BaseModel):
     model: str = "venice-xl"
     max_tokens: int = 2048
     temperature: float = 0.7
+    
+    def dict(self):
+        return {
+            "api_key": "***",  # Mask API key in serialization
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature
+        }
 
 class VeniceClient:
     _session: Optional[aiohttp.ClientSession] = None
@@ -25,6 +33,13 @@ class VeniceClient:
         self.headers = {
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json"
+        }
+    
+    def to_dict(self):
+        return {
+            "config": self.config.dict(),
+            "base_url": self.base_url,
+            "headers": {k: v for k, v in self.headers.items() if k != "Authorization"}
         }
     
     async def _get_session(self) -> aiohttp.ClientSession:
