@@ -14,7 +14,12 @@ class LibraryWatcher(FileSystemEventHandler):
         
     def on_modified(self, event: FileModifiedEvent) -> None:
         if event.src_path.endswith("metadata.db"):
-            self._loop.create_task(self.callback())
+            async def _run_callback():
+                try:
+                    await self.callback()
+                except Exception as e:
+                    print(f"DEBUG: Callback error: {e}")
+            self._loop.create_task(_run_callback())
 
 class CalibreConnector:
     def __init__(self, library_path: Path):
