@@ -109,10 +109,13 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
 @pytest.mark.asyncio
 async def test_vram_limits(venice_config, vram_manager):
     """Test that agents respect VRAM limits when running concurrently."""
-    async with vram_manager.allocate("selection", 16.0):
-        async with vram_manager.allocate("summarization", 16.0):
-            async with vram_manager.allocate("librarian", 16.0):
-                async with vram_manager.allocate("query", 16.0):
+    async with vram_manager.allocate("selection", 16.0) as selection_alloc:
+        await asyncio.sleep(0.1)  # Allow time for allocation to settle
+        async with vram_manager.allocate("summarization", 16.0) as summarization_alloc:
+            await asyncio.sleep(0.1)  # Allow time for allocation to settle
+            async with vram_manager.allocate("librarian", 16.0) as librarian_alloc:
+                await asyncio.sleep(0.1)  # Allow time for allocation to settle
+                async with vram_manager.allocate("query", 16.0) as query_alloc:
                     # All agents allocated, should be at max VRAM
                     available = await vram_manager.get_available_vram()
                     assert available == 0.0
