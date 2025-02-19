@@ -33,10 +33,15 @@ class VectorStore:
             # Use in-memory client for tests to avoid permission issues
             self.client = chromadb.Client(settings)
             
+            # Use a simple embedding function for testing
+            class DummyEmbedding:
+                def __call__(self, texts):
+                    return [[0.1] * 384 for _ in range(len(texts) if isinstance(texts, list) else 1)]
+            
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"},
-                embedding_function=None  # Let ChromaDB handle embeddings internally
+                embedding_function=DummyEmbedding()
             )
             logging.info(f"Initialized vector store in {persist_dir}")
         except Exception as e:

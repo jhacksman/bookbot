@@ -22,14 +22,22 @@ class EPUBProcessor:
 
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            book = epub.read_epub(file_path, options={
-                'ignore_ncx': True,
-                'ignore_toc': True
-            })
-            
-            if not book.spine:
-                raise RuntimeError("Invalid EPUB file: missing spine")
-            
+            try:
+                book = epub.read_epub(file_path)
+                if not book:
+                    raise RuntimeError("Failed to read EPUB file: empty book")
+                
+                # Ensure spine and items are properly set
+                if not hasattr(book, 'items') or not book.items or not book.spine:
+                    items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
+                    if not items:
+                        raise RuntimeError("Invalid EPUB file: no document items found")
+                    book.spine = [(item.id, 'yes') for item in items]
+
+            except Exception as e:
+                raise RuntimeError(f"Failed to read EPUB file: {str(e)}")
+
+            # Extract metadata
             metadata = {
                 "title": self._safe_get_metadata(book, 'title', "Unknown"),
                 "author": self._safe_get_metadata(book, 'creator'),
@@ -37,11 +45,19 @@ class EPUBProcessor:
                 "format": "epub",
                 "version": getattr(book, 'version', '2.0')
             }
-            
+
+            # Process content from HTML items
             content = []
             for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
-                text = self.html_converter.handle(item.content.decode('utf-8'))
-                content.append(text)
+                if hasattr(item, 'content') and item.content:
+                    try:
+                        text = self.html_converter.handle(item.content.decode('utf-8'))
+                        content.append(text)
+                    except Exception as e:
+                        continue
+
+            if not content:
+                raise RuntimeError("Invalid EPUB file: no content found")
             
             full_content = "\n\n".join(content)
             content_hash = hashlib.sha256(full_content.encode()).hexdigest()
