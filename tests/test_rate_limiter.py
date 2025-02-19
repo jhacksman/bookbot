@@ -17,7 +17,7 @@ async def test_rate_limiter_acquire():
     assert await limiter.acquire()
     assert not await limiter.acquire()
     
-    await asyncio.sleep(1.1)
+    await asyncio.sleep(0.1)
     assert await limiter.acquire()
 
 @pytest.mark.asyncio
