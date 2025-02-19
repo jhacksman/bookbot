@@ -37,12 +37,13 @@ class EPUBProcessor:
                     "message": "Invalid EPUB file: no document items found"
                 }
             
-            # Always rebuild spine to ensure consistency
-            book.spine = []
-            for item in items:
-                if not hasattr(item, 'id'):
-                    item.id = f'item_{len(book.spine)}'
-                book.spine.append((item.id, 'yes'))
+            # Ensure spine is properly set
+            if not book.spine:
+                book.spine = []
+                for item in items:
+                    if not hasattr(item, 'id'):
+                        item.id = f'item_{len(book.spine)}'
+                    book.spine.append(item)
 
             # Extract metadata
             metadata = {
