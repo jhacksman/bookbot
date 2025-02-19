@@ -21,9 +21,13 @@ class EPUBProcessor:
             return default
 
     async def process_file(self, file_path: str) -> Dict[str, Any]:
-        book = epub.read_epub(file_path)
-        if not book:
-            raise RuntimeError("Failed to read EPUB file: empty book")
+        if not os.path.exists(file_path):
+            raise RuntimeError(f"EPUB file not found: {file_path}")
+
+        try:
+            book = epub.read_epub(file_path)
+            if not book:
+                raise RuntimeError("Failed to read EPUB file: empty book")
         
         # Ensure spine and items are properly set
         items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
