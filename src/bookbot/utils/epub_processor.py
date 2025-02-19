@@ -4,6 +4,7 @@ from ebooklib import epub
 import html2text
 import hashlib
 import json
+import logging
 
 class EPUBProcessor:
     def __init__(self, max_chunk_size: int = 1000):
@@ -12,18 +13,29 @@ class EPUBProcessor:
         self.html_converter.ignore_images = True
         self.html_converter.ignore_tables = True
     
+    def _safe_get_metadata(self, book: epub.EpubBook, metadata_type: str, default: Any = None) -> Any:
+        try:
+            metadata = book.get_metadata('DC', metadata_type)
+            return metadata[0][0] if metadata else default
+        except Exception:
+            return default
+
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            book = epub.read_epub(file_path)
+            book = epub.read_epub(file_path, options={
+                'ignore_ncx': True,
+                'ignore_toc': True
+            })
+            
             if not book.spine:
                 raise RuntimeError("Invalid EPUB file: missing spine")
             
             metadata = {
-                "title": book.get_metadata('DC', 'title')[0][0] if book.get_metadata('DC', 'title') else "Unknown",
-                "author": book.get_metadata('DC', 'creator')[0][0] if book.get_metadata('DC', 'creator') else None,
-                "language": book.get_metadata('DC', 'language')[0][0] if book.get_metadata('DC', 'language') else None,
+                "title": self._safe_get_metadata(book, 'title', "Unknown"),
+                "author": self._safe_get_metadata(book, 'creator'),
+                "language": self._safe_get_metadata(book, 'language'),
                 "format": "epub",
-                "version": book.version
+                "version": getattr(book, 'version', '2.0')
             }
             
             content = []

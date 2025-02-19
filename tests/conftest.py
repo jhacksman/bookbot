@@ -140,12 +140,18 @@ def test_epub_path(tmp_path):
     c1.content = '<h1>Chapter 1</h1><p>This is a test chapter.</p>'
     book.add_item(c1)
     
-    # Create spine
+    # Create minimal spine
     book.spine = [(c1.id, True)]
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
     
-    # Write EPUB
+    # Write EPUB with all navigation disabled
     epub_path = tmp_path / "test.epub"
-    epub.write_epub(str(epub_path), book, {'spine': [c1.id]})
+    epub.write_epub(str(epub_path), book, {
+        'spine': [c1.id],
+        'ignore_ncx': True,
+        'ignore_toc': True
+    })
     return str(epub_path)
 
 @pytest.fixture
