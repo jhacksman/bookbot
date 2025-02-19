@@ -3,6 +3,8 @@ name = "bookbot"
 version = "0.1.0"
 description = "Autonomous AI Research and Library System"
 authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "bookbot", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -16,7 +18,19 @@ aiosqlite = "^0.19.0"
 chromadb = "^0.4.22"
 pytest = "^7.4.4"
 pytest-asyncio = "^0.23.3"
+
 numpy = "1.26.3"
+cachetools = "^5.3.2"
+aiofiles = "^23.2.1"
+tenacity = "^8.2.3"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short --durations=10"
+asyncio_timeout = 300
+log_level = "DEBUG"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
