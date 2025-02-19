@@ -8,25 +8,36 @@ from typing import Dict, Any
 def mock_venice_client(monkeypatch):
     class MockVeniceClient:
         def __init__(self, *args, **kwargs):
-            pass
+            self.config = kwargs.get("config")
+            if not self.config and args:
+                self.config = args[0]
+            if not self.config:
+                self.config = VeniceConfig(api_key="test_key")
 
         async def generate(self, prompt: str, *args, **kwargs):
-            if "hierarchical" in prompt.lower():
+            try:
+                if "hierarchical" in prompt.lower():
+                    return {
+                        "choices": [{
+                            "text": "A detailed summary of the content at the specified level."
+                        }]
+                    }
+                elif "evaluate" in prompt.lower():
+                    return {
+                        "choices": [{
+                            "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
+                        }]
+                    }
+                else:
+                    return {
+                        "choices": [{
+                            "text": '{"answer": "A detailed response", "citations": [], "confidence": 0.9}'
+                        }]
+                    }
+            except Exception as e:
                 return {
                     "choices": [{
-                        "text": "A detailed summary of the content at the specified level."
-                    }]
-                }
-            elif "evaluate" in prompt.lower():
-                return {
-                    "choices": [{
-                        "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
-                    }]
-                }
-            else:
-                return {
-                    "choices": [{
-                        "text": '{"answer": "A detailed response", "citations": [], "confidence": 0.9}'
+                        "text": str(e)
                     }]
                 }
 

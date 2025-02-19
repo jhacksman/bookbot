@@ -14,7 +14,8 @@ async def db_session():
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    return async_session
+    yield async_session
+    await engine.dispose()
 
 @pytest.mark.asyncio
 async def test_query_agent_initialization(db_session):
@@ -60,13 +61,23 @@ async def test_query_agent_with_content(db_session):
     
     # Add test book and summary to the database
     async with db_session() as session:
-        book = Book(
-            title="Test Book",
-            author="Test Author",
-            content_hash="test123",
+        async with session.begin():
+            book = Book(
+                title="Test Book",
+                author="Test Author",
+                content_hash="test123",
             vector_id="vec123"
         )
         session.add(book)
+        await session.flush()
+        
+        summary = Summary(
+            book_id=book.id,
+            level=0,
+            content="This is a test summary about AI.",
+            vector_id="vec456"
+        )
+        session.add(summary)
         await session.commit()
         
         summary = Summary(
