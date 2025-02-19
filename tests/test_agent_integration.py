@@ -31,27 +31,33 @@ def vram_manager():
 async def test_full_pipeline(venice_config, vram_manager, db_session):
     """Test the complete pipeline from book selection to querying."""
     agents = []
+    allocations = []
     try:
-        # Initialize agents with VRAM allocation
-        async with vram_manager.allocate("selection", 16.0):
-            selection_agent = SelectionAgent(venice_config, vram_limit=16.0)
-            await selection_agent.initialize()
-            agents.append(selection_agent)
-            
-            async with vram_manager.allocate("summarization", 16.0):
-                summarization_agent = SummarizationAgent(venice_config, vram_limit=16.0)
-                await summarization_agent.initialize()
-                agents.append(summarization_agent)
-                
-                async with vram_manager.allocate("librarian", 16.0):
-                    librarian_agent = LibrarianAgent(venice_config, db_url="sqlite+aiosqlite:///:memory:", vram_limit=16.0)
-                    await librarian_agent.initialize()
-                    agents.append(librarian_agent)
-                    
-                    async with vram_manager.allocate("query", 16.0):
+        # Initialize agents with VRAM allocation - using a flatter structure
+        selection_alloc = vram_manager.allocate("selection", 16.0)
+        summarization_alloc = vram_manager.allocate("summarization", 16.0)
+        librarian_alloc = vram_manager.allocate("librarian", 16.0)
+        query_alloc = vram_manager.allocate("query", 16.0)
+        
+        async with selection_alloc as _:
+            async with summarization_alloc as _:
+                async with librarian_alloc as _:
+                    async with query_alloc as _:
+                        # Initialize all agents
+                        selection_agent = SelectionAgent(venice_config, vram_limit=16.0)
+                        summarization_agent = SummarizationAgent(venice_config, vram_limit=16.0)
+                        librarian_agent = LibrarianAgent(venice_config, db_url="sqlite+aiosqlite:///:memory:", vram_limit=16.0)
                         query_agent = QueryAgent(venice_config, db_session, vram_limit=16.0)
-                        await query_agent.initialize()
-                        agents.append(query_agent)
+                        
+                        agents.extend([selection_agent, summarization_agent, librarian_agent, query_agent])
+                        
+                        # Initialize all agents
+                        await asyncio.gather(
+                            selection_agent.initialize(),
+                            summarization_agent.initialize(),
+                            librarian_agent.initialize(),
+                            query_agent.initialize()
+                        )
                         
                         test_book = {
                             "title": "Deep Learning",
@@ -110,13 +116,16 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
 @pytest.mark.asyncio
 async def test_vram_limits(venice_config, vram_manager):
     """Test that agents respect VRAM limits when running concurrently."""
-    async with vram_manager.allocate("selection", 16.0) as selection_alloc:
-        await asyncio.sleep(0.1)  # Allow time for allocation to settle
-        async with vram_manager.allocate("summarization", 16.0) as summarization_alloc:
-            await asyncio.sleep(0.1)  # Allow time for allocation to settle
-            async with vram_manager.allocate("librarian", 16.0) as librarian_alloc:
-                await asyncio.sleep(0.1)  # Allow time for allocation to settle
-                async with vram_manager.allocate("query", 16.0) as query_alloc:
+    # Allocate all VRAM at once to avoid race conditions
+    selection_alloc = vram_manager.allocate("selection", 16.0)
+    summarization_alloc = vram_manager.allocate("summarization", 16.0)
+    librarian_alloc = vram_manager.allocate("librarian", 16.0)
+    query_alloc = vram_manager.allocate("query", 16.0)
+    
+    async with selection_alloc as _:
+        async with summarization_alloc as _:
+            async with librarian_alloc as _:
+                async with query_alloc as _:
                     # All agents allocated, should be at max VRAM
                     available = await vram_manager.get_available_vram()
                     assert available == 0.0
