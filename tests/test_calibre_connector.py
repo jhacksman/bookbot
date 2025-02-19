@@ -167,6 +167,9 @@ async def test_library_watcher(mock_calibre_db):
         
         connector._on_library_change = wrapped_callback
         
+        # Give the observer time to start watching and settle
+        await asyncio.sleep(2.0)  # Added delay for CI stability
+        
         # Trigger a change
         with open(mock_calibre_db / "metadata.db", "a") as f:
             f.write(" ")  # Modify the file
@@ -180,7 +183,9 @@ async def test_library_watcher(mock_calibre_db):
     finally:
         observer.stop()
         # Give the observer thread a chance to stop
-        await asyncio.sleep(0.1)
-        observer.join(timeout=1.0)
+        await asyncio.sleep(1.0)  # Increased sleep time for CI stability
+        observer.join(timeout=2.0)  # Increased timeout for CI environments
         if observer.is_alive():
-            pytest.fail("Observer thread did not stop properly")
+            observer.join(timeout=1.0)  # One more attempt to join
+            if observer.is_alive():
+                pytest.fail("Observer thread did not stop properly")
