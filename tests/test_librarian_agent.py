@@ -1,4 +1,5 @@
 import pytest
+from ebooklib import epub
 from bookbot.agents.librarian.agent import LibrarianAgent
 from bookbot.utils.venice_client import VeniceConfig
 
@@ -87,27 +88,28 @@ async def test_librarian_agent_invalid_action():
 
 @pytest.fixture
 def test_epub_path(tmp_path):
+    from ebooklib import epub
+    from ebooklib import epub
     book = epub.EpubBook()
     book.set_identifier('test123')
     book.set_title('Test Book')
     book.set_language('en')
     book.add_author('Test Author')
     
-    # Add navigation
-    nav = epub.EpubNav()
-    book.add_item(nav)
-    
-    # Add chapter
     c1 = epub.EpubHtml(title='Chapter 1', file_name='chap_01.xhtml', lang='en')
     c1.content = '<h1>Chapter 1</h1><p>This is a test chapter.</p>'
+    c1.id = 'chapter1'
     book.add_item(c1)
     
-    # Add to spine
-    book.spine = ['nav', c1]
+    nav = epub.EpubNav()
+    nav.id = 'nav'
+    book.add_item(nav)
     
-    # Write EPUB with NCX disabled
+    book.spine = [(c1.id, 'yes')]
+    book.toc = [(epub.Section('Test Book'), [c1])]
+    
     epub_path = tmp_path / "test.epub"
-    epub.write_epub(str(epub_path), book, options={'ignore_ncx': True})
+    epub.write_epub(str(epub_path), book)
     return str(epub_path)
 
 @pytest.mark.asyncio

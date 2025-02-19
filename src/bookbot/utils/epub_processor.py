@@ -28,11 +28,16 @@ class EPUBProcessor:
                     raise RuntimeError("Failed to read EPUB file: empty book")
                 
                 # Ensure spine and items are properly set
-                if not hasattr(book, 'items') or not book.items or not book.spine:
-                    items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
-                    if not items:
-                        raise RuntimeError("Invalid EPUB file: no document items found")
-                    book.spine = [(item.id, 'yes') for item in items]
+                items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
+                if not items:
+                    raise RuntimeError("Invalid EPUB file: no document items found")
+                
+                # Always rebuild spine to ensure consistency
+                book.spine = []
+                for item in items:
+                    if not hasattr(item, 'id'):
+                        item.id = f'item_{len(book.spine)}'
+                    book.spine.append((item.id, 'yes'))
 
             except Exception as e:
                 raise RuntimeError(f"Failed to read EPUB file: {str(e)}")

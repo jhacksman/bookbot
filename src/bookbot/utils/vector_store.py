@@ -36,7 +36,9 @@ class VectorStore:
             # Use a simple embedding function for testing
             class DummyEmbedding:
                 def __call__(self, texts):
-                    return [[0.1] * 384 for _ in range(len(texts) if isinstance(texts, list) else 1)]
+                    if isinstance(texts, str):
+                        texts = [texts]
+                    return [[0.1] * 384 for _ in texts]
             
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
