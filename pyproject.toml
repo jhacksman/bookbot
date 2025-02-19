@@ -18,7 +18,7 @@ aiosqlite = "^0.19.0"
 chromadb = "^0.4.22"
 pytest = "^7.4.4"
 pytest-asyncio = "^0.23.3"
-pytest-split = "^0.8.1"
+
 numpy = "1.26.3"
 cachetools = "^5.3.2"
 aiofiles = "^23.2.1"

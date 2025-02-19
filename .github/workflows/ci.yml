@@ -5,11 +5,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      matrix:
-        shard: [1, 2, 3]
-      fail-fast: false
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -17,18 +13,6 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-      - name: Cache Poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-      - name: Cache pytest split
-        uses: actions/cache@v3
-        with:
-          path: .pytest_cache
-          key: ${{ runner.os }}-pytest-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-pytest-
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
@@ -36,4 +20,4 @@ jobs:
         run: poetry install --no-interaction
       - name: Run tests
         run: |
-          poetry run pytest tests/ --splits 3 --group ${{ matrix.shard }} -v --durations=10
+          poetry run pytest tests/ -v
