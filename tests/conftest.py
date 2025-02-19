@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock
+from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from bookbot.database.models import Base

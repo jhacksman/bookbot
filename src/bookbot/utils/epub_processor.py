@@ -15,6 +15,8 @@ class EPUBProcessor:
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
             book = epub.read_epub(file_path, options={'ignore_ncx': True})
+            if not book.spine:
+                raise RuntimeError("Invalid EPUB file: missing spine")
             
             metadata = {
                 "title": book.get_metadata('DC', 'title')[0][0] if book.get_metadata('DC', 'title') else "Unknown",
