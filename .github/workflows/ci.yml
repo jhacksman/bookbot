@@ -24,5 +24,7 @@ jobs:
         env:
           PYTHONASYNCIO: 1
           PYTHONASYNCIODEBUG: 1
+          ANONYMIZED_TELEMETRY: False
+          CHROMA_LOGGING_ENABLE: False
         run: |
           poetry run pytest tests/ -v --capture=no --log-cli-level=DEBUG -vv --timeout=60
