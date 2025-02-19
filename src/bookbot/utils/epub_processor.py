@@ -26,15 +26,17 @@ class EPUBProcessor:
 
         try:
             book = epub.read_epub(file_path)
+            if not book:
+                raise RuntimeError("Failed to read EPUB file: empty book")
+            
+            # Ensure spine and items are properly set
+            items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
+            if not items:
+                raise RuntimeError("Invalid EPUB file: no document items found")
         except epub.EpubException as e:
             raise RuntimeError(f"Invalid EPUB file: {str(e)}")
-            
-        if not book:
-            raise RuntimeError("Failed to read EPUB file: empty book")
-        
-        # Ensure spine and items are properly set
-        items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
-        if not items:
+        except Exception as e:
+            raise RuntimeError(f"Failed to process EPUB file: {str(e)}")
             raise RuntimeError("Invalid EPUB file: no document items found")
             
         # Ensure spine is properly set
