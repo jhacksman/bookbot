@@ -1,23 +1,38 @@
 import pytest
 import asyncio
+import sys
+
+if sys.platform.startswith('linux'):
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from unittest.mock import AsyncMock
 from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from bookbot.database.models import Base
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from typing import Dict, Any, AsyncGenerator
 import aiosqlite
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def event_loop():
     """Create an instance of the default event loop for each test case."""
-    loop = asyncio.new_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     asyncio.set_event_loop(loop)
     yield loop
-    loop.close()
+    try:
+        # Cancel all running tasks
+        pending = asyncio.all_tasks(loop)
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        loop.run_until_complete(loop.shutdown_asyncgens())
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
 
 @pytest.fixture
 async def async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -26,7 +41,8 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         "sqlite+aiosqlite:///:memory:",
         echo=False,
         pool_pre_ping=True,
-        pool_recycle=3600
+        pool_recycle=3600,
+        poolclass=NullPool  # Prevent connection pool warnings
     )
     
     try:
@@ -42,8 +58,10 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
             await session.rollback()
+            await session.close()
     finally:
         await engine.dispose()
+        await asyncio.sleep(0.1)  # Allow time for connections to close
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
