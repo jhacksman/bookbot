@@ -105,16 +105,13 @@ class LibrarianAgent(Agent):
                 }
                 
                 book_result = await self.add_book(book_data)
-                if "status" in book_result and book_result["status"] == "success":
+                if "book_id" in book_result:
                     return {
                         "status": "success",
                         "book_id": book_result["book_id"],
                         "vector_ids": chunk_ids
                     }
-                return {
-                    "status": "error",
-                    "message": book_result.get("message", "Failed to add book to database")
-                }
+                return book_result
             except Exception as e:
                 return {
                     "status": "error",

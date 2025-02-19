@@ -73,9 +73,15 @@ class EPUBProcessor:
             
             # Ensure metadata exists to prevent nsmap issues
             if not hasattr(book, 'metadata') or not book.metadata:
-                book.metadata = {}
-            if not hasattr(book.metadata, 'nsmap'):
                 book.metadata = {'nsmap': {'dc': 'http://purl.org/dc/elements/1.1/'}}
+            
+            # Add metadata if missing
+            if not book.get_metadata('DC', 'title'):
+                book.add_metadata('DC', 'title', 'Unknown')
+            if not book.get_metadata('DC', 'creator'):
+                book.add_metadata('DC', 'creator', 'Unknown')
+            if not book.get_metadata('DC', 'language'):
+                book.add_metadata('DC', 'language', 'en')
             
             # Ensure all paths in the book use forward slashes
             for item in book.get_items():
