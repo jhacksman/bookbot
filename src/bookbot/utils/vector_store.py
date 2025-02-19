@@ -16,15 +16,14 @@ class VectorStore:
     ):
         os.makedirs(persist_dir, exist_ok=True)
         
-        settings = Settings(
-            persist_directory=persist_dir,
-            anonymized_telemetry=False,
-            allow_reset=False,
-            chroma_db_impl="duckdb+parquet"
-        )
-        
         try:
-            self.client = chromadb.Client(settings)
+            self.client = chromadb.PersistentClient(
+                path=persist_dir,
+                settings=Settings(
+                    anonymized_telemetry=False,
+                    allow_reset=False
+                )
+            )
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine", "hnsw:construction_ef": 100}
