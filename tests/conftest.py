@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from unittest.mock import AsyncMock
 from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
