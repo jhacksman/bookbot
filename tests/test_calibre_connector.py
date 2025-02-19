@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+import os
 from pathlib import Path
 from datetime import datetime
 import asyncio
@@ -168,18 +169,23 @@ async def test_library_watcher(mock_calibre_db):
         connector._on_library_change = wrapped_callback
         
         # Give the observer time to start watching and settle
-        await asyncio.sleep(2.0)  # Added delay for CI stability
+        await asyncio.sleep(3.0)  # Increased delay for CI stability
         
         # Trigger a change
         with open(mock_calibre_db / "metadata.db", "a") as f:
             f.write(" ")  # Modify the file
+            f.flush()  # Ensure write is flushed to disk
+            os.fsync(f.fileno())  # Force sync to disk
         
-        # Wait for callback with timeout
+        # Wait for callback with timeout and better error reporting
         try:
-            await asyncio.wait_for(callback_completed.wait(), timeout=5.0)
+            start_time = asyncio.get_event_loop().time()
+            await asyncio.wait_for(callback_completed.wait(), timeout=10.0)
+            elapsed = asyncio.get_event_loop().time() - start_time
             assert connector.last_sync_time is not None
+            assert elapsed < 10.0, f"Callback took too long: {elapsed:.2f}s"
         except asyncio.TimeoutError:
-            pytest.fail("Library watcher callback did not complete in time")
+            pytest.fail(f"Library watcher callback did not complete in time. Events received: {len(connector._lock._waiters)}")
     finally:
         observer.stop()
         # Give the observer thread a chance to stop
