@@ -14,10 +14,10 @@ class EPUBProcessor:
     
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            book = epub.read_epub(file_path)
+            book = epub.read_epub(file_path, options={'ignore_ncx': True})
             
             metadata = {
-                "title": book.get_metadata('DC', 'title')[0][0],
+                "title": book.get_metadata('DC', 'title')[0][0] if book.get_metadata('DC', 'title') else "Unknown",
                 "author": book.get_metadata('DC', 'creator')[0][0] if book.get_metadata('DC', 'creator') else None,
                 "language": book.get_metadata('DC', 'language')[0][0] if book.get_metadata('DC', 'language') else None,
                 "format": "epub",

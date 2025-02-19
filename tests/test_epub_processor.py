@@ -19,7 +19,7 @@ def test_epub_path(tmp_path):
     book.spine = ['nav', c1]
     
     epub_path = tmp_path / "test.epub"
-    epub.write_epub(str(epub_path), book)
+    epub.write_epub(str(epub_path), book, options={'ignore_ncx': True})
     return str(epub_path)
 
 @pytest.mark.asyncio
