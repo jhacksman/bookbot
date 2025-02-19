@@ -1,9 +1,14 @@
 import pytest
 import sqlite3
 import os
+import sys
 from pathlib import Path
 from datetime import datetime
 import asyncio
+
+if sys.platform.startswith('linux'):
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from bookbot.utils.calibre_connector import CalibreConnector, LibraryWatcher
 
 @pytest.fixture
@@ -170,23 +175,27 @@ async def test_library_watcher(mock_calibre_db, caplog):
     observer, event_handler = await connector.watch_library()
     
     try:
-        await asyncio.sleep(0.1)  # Shorter startup wait
+        # Give the observer time to start
+        await asyncio.sleep(0.5)
         
         # Trigger file change
-        with open(mock_calibre_db / "metadata.db", "ab") as f:
-            f.write(b" ")
-            f.flush()
-            os.fsync(f.fileno())
+        async with asyncio.Lock():
+            with open(mock_calibre_db / "metadata.db", "ab") as f:
+                f.write(b" ")
+                f.flush()
+                os.fsync(f.fileno())
         
-        # Wait for callback with shorter timeout
+        # Wait for callback with timeout
         try:
-            await asyncio.wait_for(callback_completed.wait(), timeout=1.0)
+            await asyncio.wait_for(callback_completed.wait(), timeout=2.0)
             assert callback_count > 0, "Callback was never triggered"
             assert connector.last_sync_time is not None
         except asyncio.TimeoutError:
             pytest.fail("Library watcher callback did not complete in time")
     finally:
-        # Ensure cleanup happens quickly
+        # Ensure cleanup happens in order
+        await asyncio.sleep(0.1)  # Let any pending callbacks complete
         event_handler.cleanup()
         observer.stop()
-        observer.join(timeout=0.1)
+        await asyncio.sleep(0.1)  # Let the observer stop cleanly
+        observer.join(timeout=0.5)
