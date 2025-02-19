@@ -170,7 +170,7 @@ async def test_library_watcher(mock_calibre_db, caplog):
     observer, event_handler = await connector.watch_library()
     
     try:
-        await asyncio.sleep(0.5)  # Let observer start
+        await asyncio.sleep(0.1)  # Shorter startup wait
         
         # Trigger file change
         with open(mock_calibre_db / "metadata.db", "ab") as f:
@@ -180,13 +180,13 @@ async def test_library_watcher(mock_calibre_db, caplog):
         
         # Wait for callback with shorter timeout
         try:
-            await asyncio.wait_for(callback_completed.wait(), timeout=3.0)
+            await asyncio.wait_for(callback_completed.wait(), timeout=1.0)
             assert callback_count > 0, "Callback was never triggered"
             assert connector.last_sync_time is not None
         except asyncio.TimeoutError:
-            pytest.fail(f"Library watcher callback did not complete in time")
+            pytest.fail("Library watcher callback did not complete in time")
     finally:
-        # Ensure cleanup happens in the correct order
+        # Ensure cleanup happens quickly
         event_handler.cleanup()
         observer.stop()
-        observer.join(timeout=1.0)
+        observer.join(timeout=0.1)
