@@ -17,7 +17,7 @@ class LibrarianAgent(Agent):
         self.epub_processor = EPUBProcessor()
         self.engine = create_async_engine(db_url, echo=True)
         self.async_session = sessionmaker(
-            self.engine, class_=AsyncSession, expire_on_commit=False
+            bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )
     
     async def initialize(self) -> None:
@@ -92,7 +92,7 @@ class LibrarianAgent(Agent):
             # Add content chunks to vector store
             chunk_ids = await self.vector_store.add_texts(
                 texts=epub_data["chunks"],
-                metadata={"content_hash": epub_data["content_hash"]}
+                metadata=[{"content_hash": epub_data["content_hash"]} for _ in epub_data["chunks"]]
             )
             
             # Add book to database
