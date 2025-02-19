@@ -25,16 +25,20 @@ class TokenTracker:
             if self.log_file:
                 await self._log_usage(input_tokens, output_tokens)
     
+    def _calculate_cost(self) -> float:
+        return (self.input_tokens * 0.70 + self.output_tokens * 2.80) / 1_000_000
+    
     async def get_cost(self) -> float:
         async with self._lock:
-            return (self.input_tokens * 0.70 + self.output_tokens * 2.80) / 1_000_000
+            return self._calculate_cost()
     
     async def get_usage(self) -> TokenUsage:
         async with self._lock:
+            cost = self._calculate_cost()
             return TokenUsage(
                 input_tokens=self.input_tokens,
                 output_tokens=self.output_tokens,
-                cost=await self.get_cost()
+                cost=cost
             )
     
     async def _log_usage(self, input_tokens: int, output_tokens: int) -> None:

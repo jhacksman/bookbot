@@ -35,12 +35,21 @@ class VeniceClient:
             "Content-Type": "application/json"
         }
     
-    def to_dict(self):
-        return {
-            "config": self.config.dict(),
-            "base_url": self.base_url,
-            "headers": {k: v for k, v in self.headers.items() if k != "Authorization"}
-        }
+    def __getstate__(self):
+        """Custom serialization that excludes the aiohttp session"""
+        state = self.__dict__.copy()
+        # Don't pickle the session
+        state['_session'] = None
+        # Don't include sensitive data
+        state['headers'] = {k: v for k, v in self.headers.items() if k != "Authorization"}
+        return state
+    
+    def __setstate__(self, state):
+        """Custom deserialization to restore the object"""
+        self.__dict__.update(state)
+        # Restore headers with API key
+        if self.config and self.config.api_key:
+            self.headers["Authorization"] = f"Bearer {self.config.api_key}"
     
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:

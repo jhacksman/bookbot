@@ -19,12 +19,15 @@ async def test_venice_client_initialization():
     assert client.config.temperature == 0.7
     
     # Test serialization
-    data = client.to_dict()
-    assert isinstance(data, dict)
-    assert "config" in data
-    assert "base_url" in data
-    assert "headers" in data
-    assert "Authorization" not in data["headers"]
+    import pickle
+    data = pickle.dumps(client)
+    restored_client = pickle.loads(data)
+    assert restored_client.config.api_key == "test_key"
+    assert restored_client.config.model == "venice-xl"
+    assert restored_client.config.max_tokens == 2048
+    assert restored_client.config.temperature == 0.7
+    assert restored_client._session is None  # Session should not be serialized
+    assert "Authorization" not in restored_client.headers  # Sensitive data removed
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(10)
@@ -86,14 +89,14 @@ async def test_venice_client_caching():
     await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(5)
 async def test_venice_client_token_tracking():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
     
-    initial_usage = client._token_tracker.get_usage()
+    initial_usage = await client._token_tracker.get_usage()
     await client.generate("test prompt")
-    final_usage = client._token_tracker.get_usage()
+    final_usage = await client._token_tracker.get_usage()
     
     assert final_usage.input_tokens > initial_usage.input_tokens
     assert final_usage.output_tokens > initial_usage.output_tokens
@@ -102,7 +105,7 @@ async def test_venice_client_token_tracking():
     await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(5)
 async def test_venice_client_error_handling():
     config = VeniceConfig(api_key="invalid_key")
     client = VeniceClient(config)
@@ -114,14 +117,14 @@ async def test_venice_client_error_handling():
     await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(5)
 async def test_venice_client_embed():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
     
-    initial_usage = client._token_tracker.get_usage()
+    initial_usage = await client._token_tracker.get_usage()
     result = await client.embed("test input")
-    final_usage = client._token_tracker.get_usage()
+    final_usage = await client._token_tracker.get_usage()
     
     assert final_usage.input_tokens > initial_usage.input_tokens
     assert final_usage.output_tokens == initial_usage.output_tokens
