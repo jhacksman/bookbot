@@ -157,15 +157,30 @@ async def test_library_watcher(mock_calibre_db):
     # Start watching
     observer = await connector.watch_library()
     try:
+        # Create an event to track callback completion
+        callback_completed = asyncio.Event()
+        original_callback = connector._on_library_change
+        
+        async def wrapped_callback():
+            await original_callback()
+            callback_completed.set()
+        
+        connector._on_library_change = wrapped_callback
+        
         # Trigger a change
         with open(mock_calibre_db / "metadata.db", "a") as f:
             f.write(" ")  # Modify the file
         
-        # Wait for callback
-        await asyncio.sleep(1)
-        
-        # Verify last_sync_time was updated
-        assert connector.last_sync_time is not None
+        # Wait for callback with timeout
+        try:
+            await asyncio.wait_for(callback_completed.wait(), timeout=5.0)
+            assert connector.last_sync_time is not None
+        except asyncio.TimeoutError:
+            pytest.fail("Library watcher callback did not complete in time")
     finally:
         observer.stop()
-        observer.join()
+        # Give the observer thread a chance to stop
+        await asyncio.sleep(0.1)
+        observer.join(timeout=1.0)
+        if observer.is_alive():
+            pytest.fail("Observer thread did not stop properly")
