@@ -18,4 +18,7 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Run tests
-        run: poetry run pytest -v
+        run: |
+          poetry run pytest -v --capture=no --log-cli-level=DEBUG
+        env:
+          PYTHONUNBUFFERED: "1"
