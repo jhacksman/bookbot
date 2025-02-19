@@ -5,7 +5,11 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -19,4 +23,4 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          poetry run pytest tests/
+          poetry run pytest tests/ --splits 3 --group ${{ matrix.shard }} -v
