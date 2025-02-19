@@ -19,6 +19,4 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          poetry run pytest
-        env:
-          PYTHONUNBUFFERED: "1"
+          poetry run pytest tests/
