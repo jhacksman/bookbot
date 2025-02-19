@@ -45,7 +45,6 @@ class LibrarianAgent(Agent):
                 session.add(book)
                 await session.commit()
                 return {
-                    "status": "success",
                     "book_id": book.id
                 }
         except Exception as e:
