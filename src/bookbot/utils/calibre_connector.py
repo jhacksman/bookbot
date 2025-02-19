@@ -57,14 +57,13 @@ class LibraryWatcher(FileSystemEventHandler):
         """Clean up the event processor task."""
         if self._task and not self._task.done():
             try:
-                # Signal shutdown and wait for completion
                 future = asyncio.run_coroutine_threadsafe(
                     self._queue.put(None), self._loop
                 )
-                future.result(timeout=1.0)
-                self._task.result(timeout=2.0)
-            except Exception as e:
-                print(f"DEBUG: Error during cleanup: {e}")
+                future.result(timeout=0.5)
+            except Exception:
+                pass
+            finally:
                 self._task.cancel()
 
 class CalibreConnector:
