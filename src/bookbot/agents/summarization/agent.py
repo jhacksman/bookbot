@@ -41,6 +41,7 @@ Text: {content}"""
                     "vector": embedding["data"][0]["embedding"]
                 })
             except Exception as e:
+                print(f"Error generating summary at level {level}: {str(e)}")
                 continue
         
         return summaries
