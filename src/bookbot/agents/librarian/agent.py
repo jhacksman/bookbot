@@ -103,8 +103,12 @@ class LibrarianAgent(Agent):
             }
             book_result = await self.add_book(book_data)
             
-            if book_result.get("status") == "error":
-                return book_result
+            # Check if book was added successfully
+            if "book_id" not in book_result:
+                return {
+                    "status": "error",
+                    "message": "Failed to add book to database"
+                }
             
             return {
                 "status": "success",

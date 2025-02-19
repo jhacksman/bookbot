@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import os
 import ebooklib
 from ebooklib import epub
 import html2text
