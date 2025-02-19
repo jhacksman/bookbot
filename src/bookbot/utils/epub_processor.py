@@ -58,8 +58,9 @@ class EPUBProcessor:
                     item.id = f'item_{len(spine_items)}'
                 if hasattr(item, 'file_name'):
                     item.file_name = item.file_name.replace('\\', '/')
-                book.add_item(item)
-                spine_items.append((item.id, 'yes'))  # Mark as linear content
+                if not book.get_item_with_id(item.id):
+                    book.add_item(item)
+                spine_items.append(item.id)  # Use just the ID for spine entries
             
             # Set spine with nav first and build TOC
             book.spine = [('nav', 'yes')] + spine_items

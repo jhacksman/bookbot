@@ -105,8 +105,17 @@ def test_epub_path(tmp_path):
     nav.id = 'nav'
     book.add_item(nav)
     
-    book.spine = [(c1.id, 'yes')]
+    # Add navigation files
+    nav = epub.EpubNav()
+    nav.id = 'nav'
+    book.add_item(nav)
+    
+    # Create spine with nav first
+    book.spine = ['nav', c1.id]
     book.toc = [(epub.Section('Test Book'), [c1])]
+    
+    # Add NCX
+    book.add_item(epub.EpubNcx())
     
     epub_path = tmp_path / "test.epub"
     epub.write_epub(str(epub_path), book)
