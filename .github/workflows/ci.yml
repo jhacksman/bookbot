@@ -17,7 +17,9 @@ jobs:
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
       - name: Install dependencies
-        run: poetry install --no-interaction
+        run: |
+          poetry install --no-interaction
+          poetry run pip freeze
       - name: Run tests
         run: |
-          poetry run pytest tests/ -v
+          poetry run pytest tests/ -v --capture=no --log-cli-level=DEBUG -vv
