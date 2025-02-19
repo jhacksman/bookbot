@@ -35,6 +35,7 @@ async def test_librarian_agent_add_book():
     
     # Verify book was added
     book = await agent.get_book(result["book_id"])
+    assert book is not None
     assert book["title"] == test_book["title"]
     assert book["author"] == test_book["author"]
     
