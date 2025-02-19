@@ -1,4 +1,6 @@
 from typing import List, Dict, Any, Optional
+import uuid
+import datetime
 import chromadb
 from chromadb.config import Settings
 import numpy as np
@@ -17,7 +19,7 @@ class VectorStore:
         if ids is None:
             ids = [str(i) for i in range(len(texts))]
         if metadata is None:
-            metadata = [{} for _ in texts]
+            metadata = [{"doc_id": str(uuid.uuid4()), "timestamp": datetime.datetime.now().isoformat()} for _ in texts]
             
         self.collection.add(
             documents=texts,
