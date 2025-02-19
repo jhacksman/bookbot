@@ -22,7 +22,12 @@ class EPUBProcessor:
 
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            book = epub.read_epub(file_path)
+            book = None
+            try:
+                book = epub.read_epub(file_path)
+            except Exception as e:
+                raise RuntimeError(f"Failed to read EPUB file: {str(e)}")
+            
             if not book:
                 raise RuntimeError("Failed to read EPUB file: empty book")
             

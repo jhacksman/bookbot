@@ -87,14 +87,25 @@ class LibrarianAgent(Agent):
             # Process EPUB file
             epub_data = await self.epub_processor.process_file(file_path)
             
-            # Process EPUB file will raise RuntimeError if there's an issue
-            
             # Add content chunks to vector store
             chunk_ids = await self.vector_store.add_texts(
                 texts=epub_data["chunks"],
                 metadata=[{"content_hash": epub_data["content_hash"]} for _ in epub_data["chunks"]]
             )
             
+            # Add book to database
+            book_data = {
+                "title": epub_data["metadata"]["title"],
+                "author": epub_data["metadata"]["author"],
+                "content_hash": epub_data["content_hash"],
+                "metadata": epub_data["metadata"],
+                "vector_id": chunk_ids[0]  # Store first chunk ID
+            }
+            book_result = await self.add_book(book_data)
+            
+            if epub_data["status"] == "error":
+                return epub_data
+                
             # Add book to database
             book_data = {
                 "title": epub_data["metadata"]["title"],
