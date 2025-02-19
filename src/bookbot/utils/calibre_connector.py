@@ -11,15 +11,41 @@ class LibraryWatcher(FileSystemEventHandler):
     def __init__(self, callback: Callable[[], Awaitable[None]]):
         self.callback = callback
         self._loop = asyncio.get_event_loop()
+        self._queue = asyncio.Queue()
+        self._task = None
         
+    async def _process_events(self):
+        while True:
+            try:
+                event = await self._queue.get()
+                print(f"DEBUG: Processing event: {event}")
+                await self.callback()
+                print("DEBUG: Callback completed successfully")
+            except Exception as e:
+                print(f"DEBUG: Callback error: {e}")
+            finally:
+                self._queue.task_done()
+    
     def on_modified(self, event: FileModifiedEvent) -> None:
-        if event.src_path.endswith("metadata.db"):
-            async def _run_callback():
-                try:
-                    await self.callback()
-                except Exception as e:
-                    print(f"DEBUG: Callback error: {e}")
-            self._loop.create_task(_run_callback())
+        if not event.src_path.endswith("metadata.db"):
+            return
+            
+        print(f"DEBUG: File modification detected: {event.src_path}")
+        try:
+            # Put the event in the queue
+            future = asyncio.run_coroutine_threadsafe(
+                self._queue.put(event), self._loop
+            )
+            future.result(timeout=1.0)  # Wait for queue put to complete
+            
+            # Start the event processor if not running
+            if self._task is None or self._task.done():
+                self._task = asyncio.run_coroutine_threadsafe(
+                    self._process_events(), self._loop
+                )
+                print("DEBUG: Started event processor task")
+        except Exception as e:
+            print(f"DEBUG: Error in on_modified: {e}")
 
 class CalibreConnector:
     def __init__(self, library_path: Path):
@@ -117,6 +143,7 @@ class CalibreConnector:
         event_handler = LibraryWatcher(self._on_library_change)
         observer.schedule(event_handler, str(self.library_path), recursive=False)
         observer.start()
+        print("DEBUG: Started watching library")
         return observer
     
     async def tag_book(self, book_id: int, tag: str) -> None:

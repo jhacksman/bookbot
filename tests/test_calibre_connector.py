@@ -152,46 +152,73 @@ async def test_get_book_tags(mock_calibre_db):
     assert tags == []
 
 @pytest.mark.asyncio
-async def test_library_watcher(mock_calibre_db):
+async def test_library_watcher(mock_calibre_db, caplog):
+    import logging
+    caplog.set_level(logging.DEBUG)
+    
     connector = CalibreConnector(mock_calibre_db)
+    callback_count = 0
+    
+    # Create an event to track callback completion
+    callback_completed = asyncio.Event()
+    
+    async def wrapped_callback():
+        nonlocal callback_count
+        callback_count += 1
+        print(f"DEBUG: Callback triggered (count: {callback_count})")
+        try:
+            await connector.get_books()
+            callback_completed.set()
+            print("DEBUG: Callback completed")
+        except Exception as e:
+            print(f"DEBUG: Callback error: {e}")
+            raise
+    
+    # Set up the callback before starting the observer
+    connector._on_library_change = wrapped_callback
     
     # Start watching
     observer = await connector.watch_library()
     try:
-        # Create an event to track callback completion
-        callback_completed = asyncio.Event()
-        original_callback = connector._on_library_change
-        
-        async def wrapped_callback():
-            await original_callback()
-            callback_completed.set()
-        
-        connector._on_library_change = wrapped_callback
-        
         # Give the observer time to start watching and settle
-        await asyncio.sleep(3.0)  # Increased delay for CI stability
+        await asyncio.sleep(1.0)
+        print("DEBUG: Starting file modification")
         
-        # Trigger a change
-        with open(mock_calibre_db / "metadata.db", "a") as f:
-            f.write(" ")  # Modify the file
-            f.flush()  # Ensure write is flushed to disk
-            os.fsync(f.fileno())  # Force sync to disk
+        # Trigger multiple changes to increase chance of detection
+        for i in range(3):
+            # Open file in binary mode to ensure consistent writes
+            with open(mock_calibre_db / "metadata.db", "ab") as f:
+                f.write(b" ")
+                f.flush()
+                os.fsync(f.fileno())
+            # Give the file system events time to propagate
+            await asyncio.sleep(1.0)
+            print(f"DEBUG: File modified (attempt {i+1})")
+            
+            # Check if callback was triggered after each modification
+            if callback_count > 0:
+                print("DEBUG: Callback was triggered, breaking loop")
+                break
         
-        # Wait for callback with timeout and better error reporting
+        print("DEBUG: Waiting for callback")
         try:
-            start_time = asyncio.get_event_loop().time()
-            await asyncio.wait_for(callback_completed.wait(), timeout=10.0)
-            elapsed = asyncio.get_event_loop().time() - start_time
-            assert connector.last_sync_time is not None
-            assert elapsed < 10.0, f"Callback took too long: {elapsed:.2f}s"
+            # Wait for callback to complete
+            await asyncio.wait_for(callback_completed.wait(), timeout=5.0)
+            assert callback_count > 0, "Callback was never triggered"
+            assert connector.last_sync_time is not None, "last_sync_time was not updated"
         except asyncio.TimeoutError:
-            pytest.fail(f"Library watcher callback did not complete in time. Events received: {len(connector._lock._waiters)}")
+            print("DEBUG: Timeout waiting for callback")
+            print(f"DEBUG: Current callback count: {callback_count}")
+            print(f"DEBUG: Last sync time: {connector.last_sync_time}")
+            pytest.fail(f"Library watcher callback did not complete in time. Callback count: {callback_count}")
     finally:
+        print("DEBUG: Stopping observer")
         observer.stop()
-        # Give the observer thread a chance to stop
-        await asyncio.sleep(1.0)  # Increased sleep time for CI stability
-        observer.join(timeout=2.0)  # Increased timeout for CI environments
+        # Give the observer thread time to clean up
+        await asyncio.sleep(1.0)
+        observer.join(timeout=2.0)
         if observer.is_alive():
-            observer.join(timeout=1.0)  # One more attempt to join
+            print("DEBUG: First join attempt failed, trying again")
+            observer.join(timeout=1.0)
             if observer.is_alive():
                 pytest.fail("Observer thread did not stop properly")
