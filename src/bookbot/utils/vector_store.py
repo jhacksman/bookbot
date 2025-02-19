@@ -14,17 +14,26 @@ class VectorStore:
         persist_dir: str = "chroma",
         max_batch_size: int = 100
     ):
-        os.makedirs(persist_dir, exist_ok=True)
+        self.persist_dir = persist_dir
+        self.collection_name = collection_name
+        self.max_batch_size = max_batch_size
         
         try:
+            os.makedirs(persist_dir, exist_ok=True)
+            os.chmod(persist_dir, 0o777)  # Ensure write permissions for tests
+            
             self.client = chromadb.PersistentClient(
-                path=persist_dir
+                path=persist_dir,
+                settings=chromadb.Settings(
+                    allow_reset=True,
+                    is_persistent=True
+                )
             )
+            
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
-                metadata={"hnsw:space": "cosine", "hnsw:construction_ef": 100}
+                metadata={"hnsw:space": "cosine"}
             )
-            self.max_batch_size = max_batch_size
             logging.info(f"Initialized vector store in {persist_dir}")
         except Exception as e:
             logging.error(f"Failed to initialize vector store: {str(e)}")
@@ -59,7 +68,6 @@ class VectorStore:
                 if i + self.max_batch_size < len(texts):
                     logging.info(f"Added batch {i//self.max_batch_size + 1} of {(len(texts)-1)//self.max_batch_size + 1}")
             
-            self.client.persist()
             return ids
         except Exception as e:
             logging.error(f"Failed to add texts to vector store: {str(e)}")
@@ -100,8 +108,8 @@ class VectorStore:
     def __del__(self):
         try:
             if hasattr(self, 'client'):
-                self.client.persist()
-                logging.info("Vector store persisted successfully")
+                del self.client
+                logging.info("Vector store cleanup completed")
         except Exception as e:
-            logging.error(f"Failed to persist vector store: {str(e)}")
-            raise
+            logging.error(f"Failed to cleanup vector store: {str(e)}")
+            pass
