@@ -5,13 +5,13 @@ from bookbot.agents.librarian.agent import LibrarianAgent
 from bookbot.agents.query.agent import QueryAgent
 from bookbot.utils.venice_client import VeniceConfig
 from bookbot.utils.resource_manager import VRAMManager
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
+from typing import AsyncGenerator, cast
 from bookbot.database.models import Base
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
