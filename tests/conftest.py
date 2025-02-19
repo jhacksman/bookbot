@@ -12,7 +12,7 @@ import aiosqlite
 @pytest.fixture
 async def async_session():
     """Fixture that provides an async SQLAlchemy session."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -22,9 +22,9 @@ async def async_session():
     )
     
     async with async_session() as session:
-        async with session.begin():
-            yield session
-            await session.rollback()
+        yield session
+        await session.rollback()
+        await session.close()
     
     await engine.dispose()
 
@@ -140,18 +140,17 @@ def test_epub_path(tmp_path):
     c1.content = '<h1>Chapter 1</h1><p>This is a test chapter.</p>'
     book.add_item(c1)
     
-    # Create minimal spine
-    book.spine = [(c1.id, True)]
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
+    # Add navigation files
+    nav = epub.EpubNav()
+    book.add_item(nav)
     
-    # Write EPUB with all navigation disabled
+    # Create table of contents and spine
+    book.toc = [c1]
+    book.spine = [nav, c1]
+    
+    # Write EPUB with NCX disabled
     epub_path = tmp_path / "test.epub"
-    epub.write_epub(str(epub_path), book, {
-        'spine': [c1.id],
-        'ignore_ncx': True,
-        'ignore_toc': True
-    })
+    epub.write_epub(str(epub_path), book, options={'ignore_ncx': True})
     return str(epub_path)
 
 @pytest.fixture

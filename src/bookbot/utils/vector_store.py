@@ -34,16 +34,17 @@ class VectorStore:
             self.client = chromadb.Client(settings)
             
             # Use a simple embedding function for testing
-            class DummyEmbedding:
+            class DummyEmbedding(chromadb.api.types.EmbeddingFunction):
                 def __call__(self, texts):
                     if isinstance(texts, str):
                         texts = [texts]
                     return [[0.1] * 384 for _ in texts]
             
+            self.embedding_function = DummyEmbedding()
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"},
-                embedding_function=DummyEmbedding()
+                embedding_function=self.embedding_function
             )
             logging.info(f"Initialized vector store in {persist_dir}")
         except Exception as e:

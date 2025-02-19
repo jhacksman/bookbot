@@ -5,7 +5,6 @@ from bookbot.utils.epub_processor import EPUBProcessor
 @pytest.fixture
 def test_epub_path(tmp_path):
     from ebooklib import epub
-    
     book = epub.EpubBook()
     book.set_identifier('test123')
     book.set_title('Test Book')
@@ -13,13 +12,24 @@ def test_epub_path(tmp_path):
     book.add_author('Test Author')
     
     c1 = epub.EpubHtml(title='Chapter 1', file_name='chap_01.xhtml', lang='en')
+    c1.id = 'chapter1'
     c1.content = '<h1>Chapter 1</h1><p>This is a test chapter.</p>'
-    
     book.add_item(c1)
-    book.spine = ['nav', c1]
+    
+    nav = epub.EpubNav()
+    nav.id = 'nav'
+    book.add_item(nav)
+    
+    # Create spine and TOC
+    book.spine = ['nav', 'chapter1']
+    book.toc = [(epub.Section('Test Book'), [c1])]
+    
+    # Add NCX and Nav files
+    book.add_item(epub.EpubNcx())
+    book.add_item(nav)
     
     epub_path = tmp_path / "test.epub"
-    epub.write_epub(str(epub_path), book, options={'ignore_ncx': True})
+    epub.write_epub(str(epub_path), book, {"spine": ["nav", "chapter1"]})
     return str(epub_path)
 
 @pytest.mark.asyncio
