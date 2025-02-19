@@ -33,26 +33,22 @@ class LibrarianAgent(Agent):
     
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            session = self.async_session()
-            async with session as session:
-                async with session.begin():
-                    # Convert metadata to JSON string if it exists
-                    metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
-                    
-                    book = Book(
-                        title=book_data["title"],
-                        author=book_data.get("author"),
-                        content_hash=book_data.get("content_hash"),
-                        book_metadata=metadata,
-                        vector_id=book_data.get("vector_id")
-                    )
-                    session.add(book)
-                    await session.flush()
-                    book_id = book.id
-                    return {
-                        "status": "success",
-                        "book_id": book_id
-                    }
+            async with self.async_session() as session:
+                metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
+                
+                book = Book(
+                    title=book_data["title"],
+                    author=book_data.get("author"),
+                    content_hash=book_data.get("content_hash"),
+                    book_metadata=metadata,
+                    vector_id=book_data.get("vector_id")
+                )
+                session.add(book)
+                await session.commit()
+                return {
+                    "status": "success",
+                    "book_id": book.id
+                }
         except Exception as e:
             return {
                 "status": "error",
@@ -60,22 +56,19 @@ class LibrarianAgent(Agent):
             }
     
     async def add_summary(self, summary_data: Dict[str, Any]) -> Dict[str, Any]:
-        session = self.async_session()
-        async with session as session:
-            async with session.begin():
-                summary = Summary(
-                    book_id=summary_data["book_id"],
-                    level=summary_data["level"],
-                    content=summary_data["content"],
-                    vector_id=summary_data["vector_id"]
-                )
-                session.add(summary)
-                await session.commit()
-                return {"summary_id": summary.id}
+        async with self.async_session() as session:
+            summary = Summary(
+                book_id=summary_data["book_id"],
+                level=summary_data["level"],
+                content=summary_data["content"],
+                vector_id=summary_data["vector_id"]
+            )
+            session.add(summary)
+            await session.commit()
+            return {"summary_id": summary.id}
     
     async def get_book(self, book_id: int) -> Optional[Dict[str, Any]]:
-        session = self.async_session()
-        async with session as session:
+        async with self.async_session() as session:
             result = await session.execute(
                 select(Book).where(Book.id == book_id)
             )
