@@ -103,27 +103,15 @@ class LibrarianAgent(Agent):
             }
             book_result = await self.add_book(book_data)
             
-            # Check if book was added successfully
-            if "book_id" not in book_result:
-                return {
-                    "status": "error",
-                    "message": "Failed to add book to database"
-                }
-            
             return {
                 "status": "success",
                 "book_id": book_result["book_id"],
                 "vector_ids": chunk_ids
             }
-        except RuntimeError as e:
-            return {
-                "status": "error",
-                "message": str(e)
-            }
         except Exception as e:
             return {
                 "status": "error",
-                "message": f"Failed to process EPUB: {str(e)}"
+                "message": str(e)
             }
     
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
