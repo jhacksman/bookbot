@@ -78,9 +78,9 @@ def mock_venice_client(monkeypatch):
                     }]
                 }
 
-        async def embed(self, text: str, *args, **kwargs) -> dict:
-            if isinstance(text, list):
-                return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(text))]}
+        async def embed(self, input: str, *args, **kwargs) -> dict:
+            if isinstance(input, list):
+                return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(input))]}
             return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128}]}
 
     # Patch VeniceClient in all modules

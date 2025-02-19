@@ -35,10 +35,10 @@ class VectorStore:
             
             # Use a simple embedding function for testing
             class DummyEmbedding(chromadb.api.types.EmbeddingFunction):
-                def __call__(self, texts):
-                    if isinstance(texts, str):
-                        texts = [texts]
-                    return [[0.1] * 384 for _ in texts]
+                def __call__(self, input):
+                    if isinstance(input, str):
+                        input = [input]
+                    return [[0.1] * 384 for _ in input]
             
             self.embedding_function = DummyEmbedding()
             self.collection = self.client.get_or_create_collection(
