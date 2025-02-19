@@ -22,7 +22,7 @@ class AsyncRateLimiter:
     
     async def wait_for_token(self) -> None:
         while not await self.acquire():
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)  # Poll more frequently for tests
     
     def get_current_usage(self) -> int:
         now = time()

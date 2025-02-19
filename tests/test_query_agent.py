@@ -84,7 +84,7 @@ async def test_query_agent_with_content(async_session):
         # Add vector to store for testing
         await agent.vector_store.add_texts(
             texts=[str(summary.content)],
-            metadata=[{"book_id": int(book.id)}],
+            metadata=[{"book_id": str(book.id)}],
             ids=[str(summary.vector_id)]
         )
         
@@ -101,7 +101,7 @@ async def test_query_agent_with_content(async_session):
         # Add more content and test again
         await agent.vector_store.add_texts(
             texts=["This is a test summary about AI."],
-            metadata=[{"book_id": int(book.id)}],
+            metadata=[{"book_id": str(book.id)}],
             ids=["test1"]
         )
         
