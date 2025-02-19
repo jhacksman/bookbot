@@ -103,19 +103,6 @@ class LibrarianAgent(Agent):
             }
             book_result = await self.add_book(book_data)
             
-            if epub_data["status"] == "error":
-                return epub_data
-                
-            # Add book to database
-            book_data = {
-                "title": epub_data["metadata"]["title"],
-                "author": epub_data["metadata"]["author"],
-                "content_hash": epub_data["content_hash"],
-                "metadata": epub_data["metadata"],
-                "vector_id": chunk_ids[0]  # Store first chunk ID
-            }
-            book_result = await self.add_book(book_data)
-            
             if book_result["status"] == "error":
                 return book_result
             
