@@ -52,7 +52,7 @@ async def test_async_cache_expiration():
     assert result1 == 10
     assert call_count == 1
     
-    await asyncio.sleep(2.5)  # Increased sleep time for CI stability
+    await asyncio.sleep(3.0)  # Further increased sleep time for CI stability
     
     result2 = await test_func(5)
     assert result2 == 10

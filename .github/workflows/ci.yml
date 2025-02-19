@@ -23,4 +23,4 @@ jobs:
         run: poetry install
       - name: Run tests
         run: |
-          poetry run pytest tests/ --splits 3 --group ${{ matrix.shard }} -v
+          poetry run pytest tests/ --splits 3 --group ${{ matrix.shard }} -v --durations=10

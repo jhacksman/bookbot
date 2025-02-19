@@ -28,7 +28,7 @@ tenacity = "^8.2.3"
 asyncio_mode = "strict"
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --durations=10"
 asyncio_timeout = 300
 log_level = "DEBUG"
 
