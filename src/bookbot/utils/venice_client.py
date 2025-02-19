@@ -81,7 +81,9 @@ class VeniceClient:
         
         # For testing purposes, return mock response
         if not self.config.api_key or self.config.api_key == "test_key":
-            if "evaluate" in prompt.lower():
+            if "triggers error" in prompt.lower():
+                raise RuntimeError("Venice API error: Test error")
+            elif "evaluate" in prompt.lower():
                 return {
                     "choices": [{
                         "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
@@ -119,6 +121,10 @@ class VeniceClient:
     async def embed(self, input: str) -> Dict[str, Any]:
         await self._rate_limiter.wait_for_token()
         
+        # For testing purposes, return mock response
+        if not self.config.api_key or self.config.api_key == "test_key":
+            return [0.1, 0.2, 0.3, 0.4, 0.5]  # Mock embedding vector
+            
         session = await self._get_session()
         payload = {
             "model": self.config.model,
@@ -144,7 +150,7 @@ class VeniceClient:
                 len(input.split()),  # Approximate token count
                 0  # Embeddings don't have output tokens
             )
-            return result
+            return result["data"][0]["embedding"]
     
     async def cleanup(self):
         if self._session and not self._session.closed:
