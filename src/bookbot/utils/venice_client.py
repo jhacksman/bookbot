@@ -53,8 +53,10 @@ class VeniceClient:
     
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector(verify_ssl=False, force_close=True)
             self._session = aiohttp.ClientSession(
-                connector=aiohttp.TCPConnector(verify_ssl=False)
+                connector=connector,
+                loop=asyncio.get_event_loop()
             )
         return self._session
     

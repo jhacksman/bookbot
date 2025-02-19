@@ -10,6 +10,14 @@ from typing import Dict, Any, AsyncGenerator
 import aiosqlite
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 
+@pytest.fixture(autouse=True)
+def event_loop():
+    """Create an instance of the default event loop for each test case."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
+
 @pytest.fixture
 async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """Fixture that provides an async SQLAlchemy session."""

@@ -130,4 +130,7 @@ async def test_venice_client_embed():
         assert final_usage.input_tokens > initial_usage.input_tokens
         assert final_usage.output_tokens == initial_usage.output_tokens
     finally:
+        if client._session and not client._session.closed:
+            await client._session.close()
         await client.cleanup()
+        await asyncio.sleep(0.1)  # Allow event loop to clean up
