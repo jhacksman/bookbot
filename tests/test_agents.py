@@ -1,5 +1,5 @@
 import pytest
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, cast
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.agents.summarization.agent import SummarizationAgent
 from bookbot.agents.librarian.agent import LibrarianAgent
@@ -7,6 +7,7 @@ from bookbot.agents.query.agent import QueryAgent
 from bookbot.utils.venice_client import VeniceConfig
 from bookbot.utils.resource_manager import VRAMManager
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
+from sqlalchemy.engine.base import Engine
 from bookbot.database.models import Base
 
 @pytest.fixture
