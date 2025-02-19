@@ -112,6 +112,7 @@ def test_epub_path(tmp_path):
 
 @pytest.mark.asyncio
 async def test_librarian_agent_process_epub(test_epub_path, async_session):
+    from ebooklib import epub
     config = VeniceConfig(api_key="test_key")
     agent = LibrarianAgent(config)
     await agent.initialize()

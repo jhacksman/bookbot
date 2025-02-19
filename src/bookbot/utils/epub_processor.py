@@ -14,7 +14,7 @@ class EPUBProcessor:
     
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            book = epub.read_epub(file_path, options={'ignore_ncx': True})
+            book = epub.read_epub(file_path)
             if not book.spine:
                 raise RuntimeError("Invalid EPUB file: missing spine")
             
