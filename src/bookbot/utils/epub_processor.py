@@ -63,13 +63,19 @@ class EPUBProcessor:
                 spine_items.append(item.id)  # Use just the ID for spine entries
             
             # Set spine with nav first and build TOC
-            book.spine = [('nav', 'yes')] + spine_items
+            book.spine = ['nav'] + spine_items
             book.toc = [(epub.Section('Contents'), items)]
             
+            # Ensure all items are properly added
+            for item in items:
+                if not book.get_item_with_id(item.id):
+                    book.add_item(item)
+            
             # Ensure metadata exists to prevent nsmap issues
-            if not book.metadata or not hasattr(book.metadata, 'nsmap'):
-                book.metadata = epub.EpubMetadata()
-                book.metadata.nsmap = {'dc': 'http://purl.org/dc/elements/1.1/'}
+            if not hasattr(book, 'metadata') or not book.metadata:
+                book.metadata = {}
+            if not hasattr(book.metadata, 'nsmap'):
+                book.metadata = {'nsmap': {'dc': 'http://purl.org/dc/elements/1.1/'}}
             
             # Ensure all paths in the book use forward slashes
             for item in book.get_items():
