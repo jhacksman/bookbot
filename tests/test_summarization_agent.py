@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from bookbot.agents.summarization.agent import SummarizationAgent
 from bookbot.utils.venice_client import VeniceConfig
 

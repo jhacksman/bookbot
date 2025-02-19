@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.utils.venice_client import VeniceConfig
 

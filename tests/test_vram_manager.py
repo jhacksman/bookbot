@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from bookbot.utils.resource_manager import VRAMManager
 
 async def test_vram_allocation(vram_manager):

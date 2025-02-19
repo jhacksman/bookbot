@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from ebooklib import epub
 from bookbot.agents.librarian.agent import LibrarianAgent
 from bookbot.utils.venice_client import VeniceConfig

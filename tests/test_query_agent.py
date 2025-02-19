@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from bookbot.agents.query.agent import QueryAgent
 from bookbot.utils.venice_client import VeniceConfig
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession

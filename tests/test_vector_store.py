@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 import os
 import shutil
 from bookbot.utils.vector_store import VectorStore

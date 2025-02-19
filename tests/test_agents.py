@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from typing import AsyncGenerator, Dict, Any, cast
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.agents.summarization.agent import SummarizationAgent
