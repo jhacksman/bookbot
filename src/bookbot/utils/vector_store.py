@@ -18,7 +18,6 @@ class VectorStore:
         
         settings = Settings(
             persist_directory=persist_dir,
-            is_persistent=True,
             anonymized_telemetry=False,
             allow_reset=False,
             chroma_db_impl="duckdb+parquet"
