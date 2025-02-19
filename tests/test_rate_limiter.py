@@ -11,18 +11,18 @@ async def test_rate_limiter_initialization():
 
 @pytest.mark.asyncio
 async def test_rate_limiter_acquire():
-    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.1)
+    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.05)
     
     assert await limiter.acquire()
     assert await limiter.acquire()
     assert not await limiter.acquire()
     
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.05)
     assert await limiter.acquire()
 
 @pytest.mark.asyncio
 async def test_rate_limiter_wait_for_token():
-    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.1)
+    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.05)
     
     assert await limiter.acquire()
     assert await limiter.acquire()
@@ -31,7 +31,7 @@ async def test_rate_limiter_wait_for_token():
     await limiter.wait_for_token()
     elapsed = asyncio.get_event_loop().time() - start_time
     
-    assert elapsed >= 0.1
+    assert elapsed >= 0.05
 
 @pytest.mark.asyncio
 async def test_rate_limiter_get_current_usage():
@@ -45,7 +45,7 @@ async def test_rate_limiter_get_current_usage():
 
 @pytest.mark.asyncio
 async def test_rate_limiter_get_time_until_next_token():
-    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.1)
+    limiter = AsyncRateLimiter(rate_limit=2, time_window=0.05)
     
     assert limiter.get_time_until_next_token() == 0
     await limiter.acquire()
