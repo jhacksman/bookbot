@@ -19,6 +19,7 @@ chromadb = "^0.4.22"
 pytest = "^7.4.4"
 pytest-asyncio = "^0.23.3"
 pytest-timeout = "^2.2.0"
+uvloop = "^0.21.0"
 
 numpy = "1.26.3"
 cachetools = "^5.3.2"
@@ -30,9 +31,15 @@ watchdog = "^3.0.0"
 asyncio_mode = "strict"
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "-v --tb=short --durations=10"
+addopts = "-v --tb=short --durations=10 --asyncio-mode=strict --no-cov"
 asyncio_timeout = 300
 log_level = "DEBUG"
+filterwarnings = [
+    "ignore::DeprecationWarning:chromadb.*:",
+    "ignore::UserWarning:chromadb.*:",
+    "ignore::RuntimeWarning:asyncio.*:",
+    "ignore::ResourceWarning:asyncio.*:"
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
