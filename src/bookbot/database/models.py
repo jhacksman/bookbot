@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
@@ -10,8 +10,9 @@ class Book(Base):
     title = Column(String(255), nullable=False)
     author = Column(String(255))
     content_hash = Column(String(64), unique=True)
-    metadata = Column(Text)
+    book_metadata = Column(Text)  # Renamed from metadata
     vector_id = Column(String(64))
+    summaries = relationship("Summary", back_populates="book")
 
 class Summary(Base):
     __tablename__ = 'summaries'
@@ -21,3 +22,4 @@ class Summary(Base):
     level = Column(Integer)
     content = Column(Text)
     vector_id = Column(String(64))
+    book = relationship("Book", back_populates="summaries")

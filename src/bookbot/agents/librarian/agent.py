@@ -32,7 +32,7 @@ class LibrarianAgent(Agent):
                 title=book_data["title"],
                 author=book_data.get("author"),
                 content_hash=book_data.get("content_hash"),
-                metadata=book_data.get("metadata"),
+                book_metadata=book_data.get("metadata"),
                 vector_id=book_data.get("vector_id")
             )
             session.add(book)
@@ -62,7 +62,7 @@ class LibrarianAgent(Agent):
                     "id": book.id,
                     "title": book.title,
                     "author": book.author,
-                    "metadata": book.metadata,
+                    "metadata": book.book_metadata,
                     "vector_id": book.vector_id
                 }
             return None
