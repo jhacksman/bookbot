@@ -30,6 +30,11 @@ def event_loop():
         if pending:
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         loop.run_until_complete(loop.shutdown_asyncgens())
+        # Force cleanup of any remaining threads
+        import threading
+        for thread in threading.enumerate():
+            if thread is not threading.current_thread():
+                thread.join(timeout=1.0)
     finally:
         loop.close()
         asyncio.set_event_loop(None)
