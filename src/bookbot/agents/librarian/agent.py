@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional
 import json
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from ..base import Agent
 from ...database.models import Base, Book, Summary
@@ -16,8 +15,8 @@ class LibrarianAgent(Agent):
         self.vector_store = VectorStore("librarian_agent")
         self.epub_processor = EPUBProcessor()
         self.engine = create_async_engine(db_url, echo=True)
-        self.async_session = sessionmaker(
-            bind=self.engine,
+        self.async_session = async_sessionmaker(
+            self.engine,
             class_=AsyncSession,
             expire_on_commit=False
         )
@@ -88,8 +87,7 @@ class LibrarianAgent(Agent):
             # Process EPUB file
             epub_data = await self.epub_processor.process_file(file_path)
             
-            if epub_data["status"] == "error":
-                return epub_data
+            # Process EPUB file will raise RuntimeError if there's an issue
             
             # Add content chunks to vector store
             chunk_ids = await self.vector_store.add_texts(

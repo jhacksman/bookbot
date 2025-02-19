@@ -24,18 +24,12 @@ class EPUBProcessor:
         try:
             book = epub.read_epub(file_path)
             if not book:
-                return {
-                    "status": "error",
-                    "message": "Failed to read EPUB file: empty book"
-                }
+                raise RuntimeError("Failed to read EPUB file: empty book")
             
             # Ensure spine and items are properly set
             items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
             if not items:
-                return {
-                    "status": "error",
-                    "message": "Invalid EPUB file: no document items found"
-                }
+                raise RuntimeError("Invalid EPUB file: no document items found")
             
             # Ensure spine is properly set
             if not book.spine:
@@ -65,10 +59,7 @@ class EPUBProcessor:
                         continue
 
             if not content:
-                return {
-                    "status": "error",
-                    "message": "Invalid EPUB file: no content found"
-                }
+                raise RuntimeError("Invalid EPUB file: no content found")
             
             full_content = "\n\n".join(content)
             content_hash = hashlib.sha256(full_content.encode()).hexdigest()
