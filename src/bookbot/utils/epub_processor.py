@@ -22,31 +22,33 @@ class EPUBProcessor:
 
     async def process_file(self, file_path: str) -> Dict[str, Any]:
         try:
-            try:
-                book = epub.read_epub(file_path)
-                if not book:
-                    raise RuntimeError("Failed to read EPUB file: empty book")
-                
-                # Ensure spine and items are properly set
-                items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
-                if not items:
-                    raise RuntimeError("Invalid EPUB file: no document items found")
-                
-                # Always rebuild spine to ensure consistency
-                book.spine = []
-                for item in items:
-                    if not hasattr(item, 'id'):
-                        item.id = f'item_{len(book.spine)}'
-                    book.spine.append(item.id)
-
-            except Exception as e:
-                raise RuntimeError(f"Failed to read EPUB file: {str(e)}")
+            book = epub.read_epub(file_path)
+            if not book:
+                return {
+                    "status": "error",
+                    "message": "Failed to read EPUB file: empty book"
+                }
+            
+            # Ensure spine and items are properly set
+            items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
+            if not items:
+                return {
+                    "status": "error",
+                    "message": "Invalid EPUB file: no document items found"
+                }
+            
+            # Always rebuild spine to ensure consistency
+            book.spine = []
+            for item in items:
+                if not hasattr(item, 'id'):
+                    item.id = f'item_{len(book.spine)}'
+                book.spine.append(item.id)
 
             # Extract metadata
             metadata = {
                 "title": self._safe_get_metadata(book, 'title', "Unknown"),
-                "author": self._safe_get_metadata(book, 'creator'),
-                "language": self._safe_get_metadata(book, 'language'),
+                "author": self._safe_get_metadata(book, 'creator', "Unknown"),
+                "language": self._safe_get_metadata(book, 'language', "en"),
                 "format": "epub",
                 "version": getattr(book, 'version', '2.0')
             }
@@ -58,11 +60,14 @@ class EPUBProcessor:
                     try:
                         text = self.html_converter.handle(item.content.decode('utf-8'))
                         content.append(text)
-                    except Exception as e:
+                    except Exception:
                         continue
 
             if not content:
-                raise RuntimeError("Invalid EPUB file: no content found")
+                return {
+                    "status": "error",
+                    "message": "Invalid EPUB file: no content found"
+                }
             
             full_content = "\n\n".join(content)
             content_hash = hashlib.sha256(full_content.encode()).hexdigest()
@@ -70,13 +75,17 @@ class EPUBProcessor:
             chunks = self._chunk_content(full_content)
             
             return {
+                "status": "success",
                 "metadata": metadata,
                 "content": full_content,
                 "content_hash": content_hash,
                 "chunks": chunks
             }
         except Exception as e:
-            raise RuntimeError(f"Failed to process EPUB file: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to process EPUB file: {str(e)}"
+            }
     
     def _chunk_content(self, content: str) -> List[str]:
         chunks = []

@@ -88,6 +88,9 @@ class LibrarianAgent(Agent):
             # Process EPUB file
             epub_data = await self.epub_processor.process_file(file_path)
             
+            if epub_data["status"] == "error":
+                return epub_data
+            
             # Add content chunks to vector store
             chunk_ids = await self.vector_store.add_texts(
                 texts=epub_data["chunks"],
