@@ -16,11 +16,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+      - name: Cache Poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Cache pytest split
+        uses: actions/cache@v3
+        with:
+          path: .pytest_cache
+          key: ${{ runner.os }}-pytest-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - name: Run tests
         run: |
           poetry run pytest tests/ --splits 3 --group ${{ matrix.shard }} -v --durations=10
