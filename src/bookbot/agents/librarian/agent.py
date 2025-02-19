@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import json
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
@@ -27,17 +28,31 @@ class LibrarianAgent(Agent):
         self.is_active = False
     
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
-        async with self.async_session() as session:
-            book = Book(
-                title=book_data["title"],
-                author=book_data.get("author"),
-                content_hash=book_data.get("content_hash"),
-                book_metadata=book_data.get("metadata"),
-                vector_id=book_data.get("vector_id")
-            )
-            session.add(book)
-            await session.commit()
-            return {"book_id": book.id}
+        try:
+            async with self.async_session() as session:
+                async with session.begin():
+                    # Convert metadata to JSON string if it exists
+                    metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
+                    
+                    book = Book(
+                        title=book_data["title"],
+                        author=book_data.get("author"),
+                        content_hash=book_data.get("content_hash"),
+                        book_metadata=metadata,
+                        vector_id=book_data.get("vector_id")
+                    )
+                    session.add(book)
+                    await session.flush()
+                    book_id = book.id
+                    return {
+                        "status": "success",
+                        "book_id": book_id
+                    }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
     
     async def add_summary(self, summary_data: Dict[str, Any]) -> Dict[str, Any]:
         async with self.async_session() as session:
