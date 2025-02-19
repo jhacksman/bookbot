@@ -19,7 +19,7 @@ def mock_venice_client(monkeypatch):
                 if "hierarchical" in prompt.lower():
                     return {
                         "choices": [{
-                            "text": "A detailed summary of the content at the specified level."
+                            "text": "This is a test summary at level " + str(prompt.count("detailed"))
                         }]
                     }
                 elif "evaluate" in prompt.lower():
