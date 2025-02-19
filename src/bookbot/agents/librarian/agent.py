@@ -17,7 +17,9 @@ class LibrarianAgent(Agent):
         self.epub_processor = EPUBProcessor()
         self.engine = create_async_engine(db_url, echo=True)
         self.async_session = sessionmaker(
-            bind=self.engine, class_=AsyncSession, expire_on_commit=False
+            bind=self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False
         )
     
     async def initialize(self) -> None:
@@ -31,7 +33,8 @@ class LibrarianAgent(Agent):
     
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            async with self.async_session() as session:
+            session = self.async_session()
+            async with session as session:
                 async with session.begin():
                     # Convert metadata to JSON string if it exists
                     metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
@@ -57,19 +60,22 @@ class LibrarianAgent(Agent):
             }
     
     async def add_summary(self, summary_data: Dict[str, Any]) -> Dict[str, Any]:
-        async with self.async_session() as session:
-            summary = Summary(
-                book_id=summary_data["book_id"],
-                level=summary_data["level"],
-                content=summary_data["content"],
-                vector_id=summary_data["vector_id"]
-            )
-            session.add(summary)
-            await session.commit()
-            return {"summary_id": summary.id}
+        session = self.async_session()
+        async with session as session:
+            async with session.begin():
+                summary = Summary(
+                    book_id=summary_data["book_id"],
+                    level=summary_data["level"],
+                    content=summary_data["content"],
+                    vector_id=summary_data["vector_id"]
+                )
+                session.add(summary)
+                await session.commit()
+                return {"summary_id": summary.id}
     
     async def get_book(self, book_id: int) -> Optional[Dict[str, Any]]:
-        async with self.async_session() as session:
+        session = self.async_session()
+        async with session as session:
             result = await session.execute(
                 select(Book).where(Book.id == book_id)
             )
@@ -96,13 +102,17 @@ class LibrarianAgent(Agent):
             )
             
             # Add book to database
-            book_result = await self.add_book({
+            book_data = {
                 "title": epub_data["metadata"]["title"],
                 "author": epub_data["metadata"]["author"],
                 "content_hash": epub_data["content_hash"],
                 "metadata": epub_data["metadata"],
                 "vector_id": chunk_ids[0]  # Store first chunk ID
-            })
+            }
+            book_result = await self.add_book(book_data)
+            
+            if book_result["status"] == "error":
+                return book_result
             
             return {
                 "status": "success",
