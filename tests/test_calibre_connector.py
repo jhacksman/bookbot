@@ -178,8 +178,7 @@ async def test_library_watcher(mock_calibre_db, caplog):
     connector._on_library_change = wrapped_callback
     
     # Set up and start watching
-    observer = await connector.watch_library()
-    event_handler = observer.get_handlers()[0]  # Get the LibraryWatcher instance
+    observer, event_handler = await connector.watch_library()
     try:
         # Give the observer time to start watching and settle
         await asyncio.sleep(1.0)

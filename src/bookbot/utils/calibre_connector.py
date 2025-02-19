@@ -158,13 +158,13 @@ class CalibreConnector:
     async def _on_library_change(self) -> None:
         await self.get_books()
     
-    async def watch_library(self) -> Observer:
+    async def watch_library(self) -> tuple[Observer, LibraryWatcher]:
         observer = Observer()
         event_handler = LibraryWatcher(self._on_library_change)
         observer.schedule(event_handler, str(self.library_path), recursive=False)
         observer.start()
         print("DEBUG: Started watching library")
-        return observer
+        return observer, event_handler
     
     async def tag_book(self, book_id: int, tag: str) -> None:
         async with self._lock:
