@@ -7,12 +7,14 @@ from ..base import Agent
 from ...database.models import Base, Book, Summary
 from ...utils.venice_client import VeniceClient, VeniceConfig
 from ...utils.vector_store import VectorStore
+from ...utils.epub_processor import EPUBProcessor
 
 class LibrarianAgent(Agent):
     def __init__(self, venice_config: VeniceConfig, db_url: str = "sqlite+aiosqlite:///:memory:", vram_limit: float = 16.0):
         super().__init__(vram_limit)
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("librarian_agent")
+        self.epub_processor = EPUBProcessor()
         self.engine = create_async_engine(db_url, echo=True)
         self.async_session = sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
@@ -82,6 +84,37 @@ class LibrarianAgent(Agent):
                 }
             return None
     
+    async def process_epub(self, file_path: str) -> Dict[str, Any]:
+        try:
+            # Process EPUB file
+            epub_data = await self.epub_processor.process_file(file_path)
+            
+            # Add content chunks to vector store
+            chunk_ids = await self.vector_store.add_texts(
+                texts=epub_data["chunks"],
+                metadata={"content_hash": epub_data["content_hash"]}
+            )
+            
+            # Add book to database
+            book_result = await self.add_book({
+                "title": epub_data["metadata"]["title"],
+                "author": epub_data["metadata"]["author"],
+                "content_hash": epub_data["content_hash"],
+                "metadata": epub_data["metadata"],
+                "vector_id": chunk_ids[0]  # Store first chunk ID
+            })
+            
+            return {
+                "status": "success",
+                "book_id": book_result["book_id"],
+                "vector_ids": chunk_ids
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         action = input_data.get("action")
         if not action:
@@ -109,6 +142,8 @@ class LibrarianAgent(Agent):
                     "status": "success",
                     "book": book
                 }
+            elif action == "process_epub":
+                return await self.process_epub(input_data["file_path"])
             else:
                 return {
                     "status": "error",

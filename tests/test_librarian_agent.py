@@ -84,3 +84,55 @@ async def test_librarian_agent_invalid_action():
     assert "message" in result
     
     await agent.cleanup()
+
+@pytest.mark.asyncio
+async def test_librarian_agent_process_epub(test_epub_path, async_session):
+    config = VeniceConfig(api_key="test_key")
+    agent = LibrarianAgent(config)
+    await agent.initialize()
+    
+    try:
+        result = await agent.process({
+            "action": "process_epub",
+            "file_path": test_epub_path
+        })
+        
+        assert result["status"] == "success"
+        assert "book_id" in result
+        assert "vector_ids" in result
+        assert len(result["vector_ids"]) > 0
+        
+        # Verify book was added
+        book_result = await agent.process({
+            "action": "get_book",
+            "book_id": result["book_id"]
+        })
+        
+        assert book_result["status"] == "success"
+        assert book_result["book"]["title"] == "Test Book"
+        assert book_result["book"]["author"] == "Test Author"
+        assert "content_hash" in book_result["book"]
+        assert "vector_id" in book_result["book"]
+    finally:
+        await agent.cleanup()
+
+@pytest.mark.asyncio
+async def test_librarian_agent_process_epub_invalid_file(async_session, tmp_path):
+    config = VeniceConfig(api_key="test_key")
+    agent = LibrarianAgent(config)
+    await agent.initialize()
+    
+    invalid_path = tmp_path / "invalid.epub"
+    with open(invalid_path, 'w') as f:
+        f.write("Not an EPUB file")
+    
+    try:
+        result = await agent.process({
+            "action": "process_epub",
+            "file_path": str(invalid_path)
+        })
+        
+        assert result["status"] == "error"
+        assert "message" in result
+    finally:
+        await agent.cleanup()
