@@ -30,23 +30,62 @@ class EPUBProcessor:
             if not book:
                 raise RuntimeError("Failed to read EPUB file: empty book")
             
-            # Ensure spine and items are properly set
+            # Get all document items
             items = list(book.get_items_of_type(ebooklib.ITEM_DOCUMENT))
             if not items:
                 raise RuntimeError("Invalid EPUB file: no document items found")
+            
+            # Ensure each item has an ID
+            for item in items:
+                if not hasattr(item, 'id'):
+                    item.id = f'item_{len(items)}'
+                book.add_item(item)
+
+            # Add navigation files if they don't exist
+            if not book.get_item_with_id('nav'):
+                nav = epub.EpubNav()
+                nav.id = 'nav'
+                book.add_item(nav)
+            if not book.get_item_with_id('ncx'):
+                ncx = epub.EpubNcx()
+                ncx.id = 'ncx'
+                book.add_item(ncx)
+
+            # Add items to spine in correct order
+            spine_items = []
+            for item in items:
+                if not hasattr(item, 'id') or not item.id:
+                    item.id = f'item_{len(spine_items)}'
+                if hasattr(item, 'file_name'):
+                    item.file_name = item.file_name.replace('\\', '/')
+                book.add_item(item)
+                spine_items.append((item.id, 'yes'))  # Mark as linear content
+            
+            # Set spine with nav first and build TOC
+            book.spine = [('nav', 'yes')] + spine_items
+            book.toc = [(epub.Section('Contents'), items)]
+            
+            # Ensure metadata exists to prevent nsmap issues
+            if not book.metadata or not hasattr(book.metadata, 'nsmap'):
+                book.metadata = epub.EpubMetadata()
+                book.metadata.nsmap = {'dc': 'http://purl.org/dc/elements/1.1/'}
+            
+            # Ensure all paths in the book use forward slashes
+            for item in book.get_items():
+                if hasattr(item, 'file_name'):
+                    item.file_name = item.file_name.replace('\\', '/')
+                if hasattr(item, 'href'):
+                    item.href = item.href.replace('\\', '/')
+            
+            # Add NCX and Nav if missing
+            if not book.get_item_with_id('nav'):
+                book.add_item(epub.EpubNav())
+            if not book.get_item_with_id('ncx'):
+                book.add_item(epub.EpubNcx())
         except epub.EpubException as e:
             raise RuntimeError(f"Invalid EPUB file: {str(e)}")
         except Exception as e:
             raise RuntimeError(f"Failed to process EPUB file: {str(e)}")
-            raise RuntimeError("Invalid EPUB file: no document items found")
-            
-        # Ensure spine is properly set
-        if not book.spine:
-            book.spine = []
-            for item in items:
-                if not hasattr(item, 'id'):
-                    item.id = f'item_{len(book.spine)}'
-                book.spine.append(item)
 
         # Extract metadata
         metadata = {

@@ -44,8 +44,10 @@ class LibrarianAgent(Agent):
                 )
                 session.add(book)
                 await session.commit()
+                await session.refresh(book)
                 return {
-                    "book_id": book.id
+                    "book_id": book.id,
+                    "status": "success"
                 }
         except Exception as e:
             return {
@@ -83,31 +85,43 @@ class LibrarianAgent(Agent):
     
     async def process_epub(self, file_path: str) -> Dict[str, Any]:
         try:
-            # Process EPUB file
-            epub_data = await self.epub_processor.process_file(file_path)
-            
-            # Add content chunks to vector store
-            chunk_ids = await self.vector_store.add_texts(
-                texts=epub_data["chunks"],
-                metadata=[{"content_hash": epub_data["content_hash"]} for _ in epub_data["chunks"]]
-            )
-            
-            # Add book to database
-            book_data = {
-                "title": epub_data["metadata"]["title"],
-                "author": epub_data["metadata"]["author"],
-                "content_hash": epub_data["content_hash"],
-                "metadata": epub_data["metadata"],
-                "vector_id": chunk_ids[0]  # Store first chunk ID
-            }
-            book_result = await self.add_book(book_data)
-            
-            # Always return success if we get here since the book was processed
-            return {
-                "status": "success",
-                "book_id": book_result.get("book_id", None),
-                "vector_ids": chunk_ids
-            }
+            try:
+                # Process EPUB file
+                epub_data = await self.epub_processor.process_file(file_path)
+                
+                # Add content chunks to vector store
+                chunk_ids = await self.vector_store.add_texts(
+                    texts=epub_data["chunks"],
+                    metadata=[{"content_hash": epub_data["content_hash"]} for _ in epub_data["chunks"]]
+                )
+                
+                # Add book to database
+                book_data = {
+                    "title": epub_data["metadata"]["title"],
+                    "author": epub_data["metadata"]["author"],
+                    "content_hash": epub_data["content_hash"],
+                    "metadata": epub_data["metadata"],
+                    "vector_id": chunk_ids[0]  # Store first chunk ID
+                }
+                
+                book_result = await self.add_book(book_data)
+                if "book_id" in book_result:
+                    return {
+                        "status": "success",
+                        "book_id": book_result["book_id"],
+                        "vector_ids": chunk_ids
+                    }
+                if "status" in book_result and book_result["status"] == "error":
+                    return book_result
+                return {
+                    "status": "error",
+                    "message": "Failed to add book to database"
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": str(e)
+                }
         except Exception as e:
             return {
                 "status": "error",
