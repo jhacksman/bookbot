@@ -59,11 +59,11 @@ class VeniceClient:
                     raise RuntimeError(f"Venice API error: {error_text}")
                 return await response.json()
     
-    async def embed(self, text: str) -> Dict[str, Any]:
+    async def embed(self, input: str) -> Dict[str, Any]:
         async with aiohttp.ClientSession() as session:
             payload = {
                 "model": self.config.model,
-                "input": text
+                "input": input
             }
             
             async with session.post(

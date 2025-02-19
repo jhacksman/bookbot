@@ -1,21 +1,24 @@
 from typing import Any, Dict, List, Optional
 import json
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from ..base import Agent
 from ...database.models import Base, Book, Summary
 from ...utils.venice_client import VeniceClient, VeniceConfig
 from ...utils.vector_store import VectorStore
+from ...utils.epub_processor import EPUBProcessor
 
 class LibrarianAgent(Agent):
     def __init__(self, venice_config: VeniceConfig, db_url: str = "sqlite+aiosqlite:///:memory:", vram_limit: float = 16.0):
         super().__init__(vram_limit)
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("librarian_agent")
+        self.epub_processor = EPUBProcessor()
         self.engine = create_async_engine(db_url, echo=True)
-        self.async_session = sessionmaker(
-            self.engine, class_=AsyncSession, expire_on_commit=False
+        self.async_session = async_sessionmaker(
+            self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False
         )
     
     async def initialize(self) -> None:
@@ -30,24 +33,22 @@ class LibrarianAgent(Agent):
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             async with self.async_session() as session:
-                async with session.begin():
-                    # Convert metadata to JSON string if it exists
-                    metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
-                    
-                    book = Book(
-                        title=book_data["title"],
-                        author=book_data.get("author"),
-                        content_hash=book_data.get("content_hash"),
-                        book_metadata=metadata,
-                        vector_id=book_data.get("vector_id")
-                    )
-                    session.add(book)
-                    await session.flush()
-                    book_id = book.id
-                    return {
-                        "status": "success",
-                        "book_id": book_id
-                    }
+                metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
+                
+                book = Book(
+                    title=book_data["title"],
+                    author=book_data.get("author"),
+                    content_hash=book_data.get("content_hash"),
+                    book_metadata=metadata,
+                    vector_id=book_data.get("vector_id")
+                )
+                session.add(book)
+                await session.commit()
+                await session.refresh(book)
+                return {
+                    "book_id": book.id,
+                    "status": "success"
+                }
         except Exception as e:
             return {
                 "status": "error",
@@ -77,10 +78,46 @@ class LibrarianAgent(Agent):
                     "id": book.id,
                     "title": book.title,
                     "author": book.author,
+                    "content_hash": book.content_hash,
                     "metadata": book.book_metadata,
                     "vector_id": book.vector_id
                 }
             return None
+    
+    async def process_epub(self, file_path: str) -> Dict[str, Any]:
+        try:
+            # Process EPUB file
+            epub_data = await self.epub_processor.process_file(file_path)
+            
+            # Add content chunks to vector store
+            chunk_ids = await self.vector_store.add_texts(
+                texts=epub_data["chunks"],
+                metadata=[{"content_hash": epub_data["content_hash"]} for _ in epub_data["chunks"]]
+            )
+            
+            # Add book to database
+            book_data = {
+                "title": epub_data["metadata"]["title"],
+                "author": epub_data["metadata"]["author"],
+                "content_hash": epub_data["content_hash"],
+                "metadata": epub_data["metadata"],
+                "vector_id": chunk_ids[0]  # Store first chunk ID
+            }
+            
+            book_result = await self.add_book(book_data)
+            if "book_id" not in book_result:
+                raise RuntimeError(f"Failed to add book: {book_result.get('message', 'Unknown error')}")
+                
+            return {
+                "status": "success",
+                "book_id": book_result["book_id"],
+                "vector_ids": chunk_ids
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
     
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         action = input_data.get("action")
@@ -109,6 +146,8 @@ class LibrarianAgent(Agent):
                     "status": "success",
                     "book": book
                 }
+            elif action == "process_epub":
+                return await self.process_epub(input_data["file_path"])
             else:
                 return {
                     "status": "error",

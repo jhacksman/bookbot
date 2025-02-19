@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock
+from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from bookbot.database.models import Base
@@ -11,7 +12,7 @@ import aiosqlite
 @pytest.fixture
 async def async_session():
     """Fixture that provides an async SQLAlchemy session."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -21,9 +22,9 @@ async def async_session():
     )
     
     async with async_session() as session:
-        async with session.begin():
-            yield session
-            await session.rollback()
+        yield session
+        await session.rollback()
+        await session.close()
     
     await engine.dispose()
 
@@ -77,9 +78,9 @@ def mock_venice_client(monkeypatch):
                     }]
                 }
 
-        async def embed(self, text: str, *args, **kwargs) -> dict:
-            if isinstance(text, list):
-                return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(text))]}
+        async def embed(self, input: str, *args, **kwargs) -> dict:
+            if isinstance(input, list):
+                return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(input))]}
             return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128}]}
 
     # Patch VeniceClient in all modules
@@ -123,6 +124,34 @@ def test_summary_data() -> Dict[str, Any]:
         "content": "Test summary content",
         "vector_id": "test_vector_123"
     }
+
+@pytest.fixture
+def test_epub_path(tmp_path):
+    from ebooklib import epub
+    
+    book = epub.EpubBook()
+    book.set_identifier('test123')
+    book.set_title('Test Book')
+    book.set_language('en')
+    book.add_author('Test Author')
+    
+    # Add chapter
+    c1 = epub.EpubHtml(title='Chapter 1', file_name='chap_01.xhtml', lang='en')
+    c1.content = '<h1>Chapter 1</h1><p>This is a test chapter.</p>'
+    book.add_item(c1)
+    
+    # Add navigation files
+    nav = epub.EpubNav()
+    book.add_item(nav)
+    
+    # Create table of contents and spine
+    book.toc = [c1]
+    book.spine = [nav, c1]
+    
+    # Write EPUB with NCX disabled
+    epub_path = tmp_path / "test.epub"
+    epub.write_epub(str(epub_path), book, options={'ignore_ncx': True})
+    return str(epub_path)
 
 @pytest.fixture
 async def initialized_vram_manager(vram_manager):
