@@ -5,15 +5,14 @@ from ...utils.venice_client import VeniceClient, VeniceConfig
 from ...utils.vector_store import VectorStore
 from ...database.models import Book, Summary
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.future import select
 
 class QueryAgent(Agent):
-    def __init__(self, venice_config: VeniceConfig, db_session: sessionmaker, vram_limit: float = 16.0):
+    def __init__(self, venice_config: VeniceConfig, session: AsyncSession, vram_limit: float = 16.0):
         super().__init__(vram_limit)
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("query_agent")
-        self.db_session = db_session
+        self.session = session
     
     async def initialize(self) -> None:
         self.is_active = True
@@ -25,42 +24,32 @@ class QueryAgent(Agent):
         try:
             # Search for relevant summaries and book content
             results = await self.vector_store.similarity_search(query, k=k)
+            if not results:
+                return []
             
             # Get full book details for citations
-            async with self.db_session() as session:
-                async with session.begin():
-                    relevant_content = []
-                    for result in results:
-                        book_id = result["metadata"].get("book_id")
-                        if book_id:
-                            book = await session.execute(
-                                select(Book).where(Book.id == book_id)
-                            )
-                            book = book.scalar_one_or_none()
-                            if book:
-                                relevant_content.append({
-                                    "content": result["content"],
-                                    "book": {
-                                        "id": book.id,
-                                        "title": book.title,
-                                        "author": book.author
-                                    },
-                                    "score": 1 - result.get("distance", 0)
-                                })
-                    
-                    if not relevant_content:
-                        return [{
-                            "content": "No relevant content found in the library.",
-                            "book": {"id": 0, "title": "System", "author": "System"},
-                            "score": 0.0
-                        }]
-                    return relevant_content
+            relevant_content = []
+            for result in results:
+                book_id = result["metadata"].get("book_id")
+                if book_id:
+                    book = await self.session.execute(
+                        select(Book).where(Book.id == book_id)
+                    )
+                    book = book.scalar_one_or_none()
+                    if book:
+                        relevant_content.append({
+                            "content": result["content"],
+                            "book": {
+                                "id": book.id,
+                                "title": book.title,
+                                "author": book.author
+                            },
+                            "score": 1 - result.get("distance", 0)
+                        })
+            return relevant_content
         except Exception as e:
-            return [{
-                "content": f"Error searching content: {str(e)}",
-                "book": {"id": 0, "title": "Error", "author": "System"},
-                "score": 0.0
-            }]
+            print(f"Error finding relevant content: {str(e)}")
+            return []
     
     async def generate_response(self, query: str, relevant_content: List[Dict[str, Any]]) -> Dict[str, Any]:
         try:

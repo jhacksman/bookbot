@@ -2,9 +2,32 @@ import pytest
 from unittest.mock import AsyncMock
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
+from bookbot.database.models import Base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 from typing import Dict, Any
+import aiosqlite
 
 @pytest.fixture
+async def async_session():
+    """Fixture that provides an async SQLAlchemy session."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session() as session:
+        async with session.begin():
+            yield session
+            await session.rollback()
+    
+    await engine.dispose()
+
+@pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
     class MockVeniceClient:
         def __init__(self, *args, **kwargs):
@@ -17,9 +40,14 @@ def mock_venice_client(monkeypatch):
         async def generate(self, prompt: str, *args, **kwargs):
             try:
                 if "hierarchical" in prompt.lower():
+                    level = 0
+                    if "concise" in prompt.lower():
+                        level = 1
+                    elif "brief" in prompt.lower():
+                        level = 2
                     return {
                         "choices": [{
-                            "text": "This is a test summary at level " + str(prompt.count("detailed"))
+                            "text": f"Summary level {level}: This is a test summary of the content. It covers key concepts and technical details at varying levels of detail depending on the summary level."
                         }]
                     }
                 elif "evaluate" in prompt.lower():
@@ -29,9 +57,17 @@ def mock_venice_client(monkeypatch):
                         }]
                     }
                 else:
+                    # For queries with no relevant content, return empty citations
+                    if "meaning of life" in prompt.lower():
+                        return {
+                            "choices": [{
+                                "text": '{"answer": "No relevant information found.", "citations": [], "confidence": 0.0}'
+                            }]
+                        }
+                    # For queries with content, return citations
                     return {
                         "choices": [{
-                            "text": '{"answer": "A detailed response", "citations": [], "confidence": 0.9}'
+                            "text": '{"answer": "This book discusses artificial intelligence and machine learning concepts.", "citations": [{"book_id": 1, "title": "Test Book", "author": "Test Author", "quoted_text": "This is a test summary about AI."}], "confidence": 0.9}'
                         }]
                     }
             except Exception as e:
@@ -41,8 +77,10 @@ def mock_venice_client(monkeypatch):
                     }]
                 }
 
-        async def embed(self, texts: list, *args, **kwargs):
-            return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(texts) if isinstance(texts, list) else 1)]}
+        async def embed(self, text: str, *args, **kwargs) -> dict:
+            if isinstance(text, list):
+                return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128} for _ in range(len(text))]}
+            return {"data": [{"embedding": [0.1, 0.2, 0.3] * 128}]}
 
     # Patch VeniceClient in all modules
     for module in [
