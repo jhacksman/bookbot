@@ -213,6 +213,9 @@ async def test_library_watcher(mock_calibre_db, caplog):
             pytest.fail(f"Library watcher callback did not complete in time. Callback count: {callback_count}")
     finally:
         print("DEBUG: Stopping observer")
+        # Clean up the event processor first
+        event_handler.cleanup()
+        # Then stop the observer
         observer.stop()
         # Give the observer thread time to clean up
         await asyncio.sleep(1.0)

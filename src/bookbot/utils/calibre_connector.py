@@ -15,16 +15,22 @@ class LibraryWatcher(FileSystemEventHandler):
         self._task = None
         
     async def _process_events(self):
-        while True:
-            try:
+        try:
+            while True:
                 event = await self._queue.get()
+                if event is None:  # Shutdown signal
+                    break
                 print(f"DEBUG: Processing event: {event}")
-                await self.callback()
-                print("DEBUG: Callback completed successfully")
-            except Exception as e:
-                print(f"DEBUG: Callback error: {e}")
-            finally:
-                self._queue.task_done()
+                try:
+                    await self.callback()
+                    print("DEBUG: Callback completed successfully")
+                except Exception as e:
+                    print(f"DEBUG: Callback error: {e}")
+                finally:
+                    self._queue.task_done()
+        except asyncio.CancelledError:
+            print("DEBUG: Event processor cancelled")
+            raise
     
     def on_modified(self, event: FileModifiedEvent) -> None:
         if not event.src_path.endswith("metadata.db"):
@@ -46,6 +52,20 @@ class LibraryWatcher(FileSystemEventHandler):
                 print("DEBUG: Started event processor task")
         except Exception as e:
             print(f"DEBUG: Error in on_modified: {e}")
+            
+    def cleanup(self):
+        """Clean up the event processor task."""
+        if self._task and not self._task.done():
+            try:
+                # Signal shutdown and wait for completion
+                future = asyncio.run_coroutine_threadsafe(
+                    self._queue.put(None), self._loop
+                )
+                future.result(timeout=1.0)
+                self._task.result(timeout=2.0)
+            except Exception as e:
+                print(f"DEBUG: Error during cleanup: {e}")
+                self._task.cancel()
 
 class CalibreConnector:
     def __init__(self, library_path: Path):
