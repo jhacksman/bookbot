@@ -122,11 +122,12 @@ async def test_venice_client_embed():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
     
-    initial_usage = await client._token_tracker.get_usage()
-    result = await client.embed("test input")
-    final_usage = await client._token_tracker.get_usage()
-    
-    assert final_usage.input_tokens > initial_usage.input_tokens
-    assert final_usage.output_tokens == initial_usage.output_tokens
-    
-    await client.cleanup()
+    try:
+        initial_usage = await client._token_tracker.get_usage()
+        result = await client.embed("test input")
+        final_usage = await client._token_tracker.get_usage()
+        
+        assert final_usage.input_tokens > initial_usage.input_tokens
+        assert final_usage.output_tokens == initial_usage.output_tokens
+    finally:
+        await client.cleanup()
