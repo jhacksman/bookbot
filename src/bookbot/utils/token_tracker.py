@@ -20,11 +20,11 @@ class TokenTracker:
         self.log_file = log_file
         self.log_buffer = log_buffer
         self._lock = asyncio.Lock()
-        self._closed = False
+        self._error = None
     
     async def add_usage(self, input_tokens: int, output_tokens: int) -> None:
-        if self._closed:
-            raise RuntimeError("TokenTracker is closed")
+        if self._error:
+            raise RuntimeError(f"TokenTracker encountered an error: {self._error}")
         async with self._lock:
             self.input_tokens += input_tokens
             self.output_tokens += output_tokens
@@ -51,7 +51,7 @@ class TokenTracker:
             )
     
     async def _log_usage(self, input_tokens: int, output_tokens: int) -> None:
-        if not (self.log_file or self.log_buffer) or self._closed:
+        if not (self.log_file or self.log_buffer):
             return
             
         log_entry = {
@@ -61,25 +61,26 @@ class TokenTracker:
             'cost': (input_tokens * 0.70 + output_tokens * 2.80) / 1_000_000
         }
         
-        async with self._lock:
-            if self.log_buffer and not self._closed:
+        try:
+            if self.log_buffer:
                 json.dump(log_entry, self.log_buffer)
                 self.log_buffer.write('\n')
-                self.log_buffer.flush()
-            if self.log_file and not self._closed:
+            if self.log_file:
                 with open(str(self.log_file), 'a') as f:
                     json.dump(log_entry, f)
                     f.write('\n')
-                    f.flush()
+            await self._flush_logs()
+        except Exception as e:
+            self._error = e
+            raise
     
-    async def close(self) -> None:
-        async with self._lock:
-            self._closed = True
+    async def _flush_logs(self) -> None:
+        try:
             if self.log_buffer:
                 self.log_buffer.flush()
-            
-    async def __aenter__(self) -> 'TokenTracker':
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.close()
+            if self.log_file and self.log_file.exists():
+                with open(str(self.log_file), 'a') as f:
+                    f.flush()
+        except Exception as e:
+            self._error = e
+            raise
