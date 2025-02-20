@@ -69,11 +69,12 @@ def mock_chromadb(monkeypatch):
                     "metadatas": [[]],
                     "documents": [[]]
                 }
+            results = min(n_results, len(self.texts))
             return {
-                "ids": [self.ids[:n_results]],
-                "distances": [[0.0] * min(n_results, len(self.texts))],
-                "metadatas": [self.metadatas[:n_results]],
-                "documents": [self.texts[:n_results]]
+                "ids": [self.ids[:results] if self.ids else []],
+                "distances": [[0.0] * results] if results > 0 else [[]],
+                "metadatas": [self.metadatas[:results] if self.metadatas else []],
+                "documents": [self.texts[:results] if self.texts else []]
             }
     
     monkeypatch.setattr("chromadb.Client", MockChromaClient)
@@ -120,7 +121,7 @@ def event_loop():
         asyncio.set_event_loop(None)
 
 @pytest.fixture
-def async_session() -> AsyncGenerator[AsyncSession, None]:
+async def async_session() -> AsyncGenerator[AsyncSession, None]:
     """Fixture that provides an async SQLAlchemy session."""
     engine: AsyncEngine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -159,7 +160,7 @@ def mock_venice_client(monkeypatch):
                 self.config = VeniceConfig(api_key="test_key")
             self._last_call = asyncio.get_event_loop().time()
             self._call_count = 0
-            self._rate_limit_delay = 0.1  # 100ms between calls
+            self._rate_limit_delay = 0.2  # 200ms between calls to ensure test stability
             
         async def generate(self, prompt: str, *args, **kwargs):
             try:
@@ -187,7 +188,7 @@ def mock_venice_client(monkeypatch):
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # Cache test - return temperature-dependent response
-                    response = f'Test response with temperature {temp}'
+                    response = f'{{"answer": "Test response with temperature {temp}", "citations": [], "confidence": {temp}}}'
                 
                 return {
                     "choices": [{
