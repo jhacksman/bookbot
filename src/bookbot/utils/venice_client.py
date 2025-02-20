@@ -123,7 +123,7 @@ class VeniceClient:
         
         # For testing purposes, return mock response
         if not self.config.api_key or self.config.api_key == "test_key":
-            return [0.1, 0.2, 0.3, 0.4, 0.5]  # Mock embedding vector
+            return {"data": [{"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}]}
             
         session = await self._get_session()
         payload = {
