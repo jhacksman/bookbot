@@ -2,6 +2,8 @@ import pytest
 import asyncio
 import sys
 import os
+from io import StringIO
+from unittest.mock import AsyncMock, patch
 
 # Disable all telemetry and logging
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -14,7 +16,25 @@ os.environ["DISABLE_ANALYTICS"] = "True"
 if sys.platform.startswith('linux'):
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-from unittest.mock import AsyncMock
+
+# Mock ChromaDB to prevent background threads
+@pytest.fixture(autouse=True)
+def mock_chromadb(monkeypatch):
+    class MockChromaClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        async def heartbeat(self):
+            return True
+        
+        def reset(self):
+            pass
+        
+        def close(self):
+            pass
+    
+    monkeypatch.setattr("chromadb.Client", MockChromaClient)
+    monkeypatch.setattr("chromadb.PersistentClient", MockChromaClient)
 from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
@@ -39,6 +59,14 @@ def event_loop():
         if pending:
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         loop.run_until_complete(loop.shutdown_asyncgens())
+        # Close any remaining aiohttp sessions
+        for task in pending:
+            if 'aiohttp' in str(task):
+                task.cancel()
+                try:
+                    loop.run_until_complete(task)
+                except (asyncio.CancelledError, Exception):
+                    pass
         # Force cleanup of any remaining threads
         import threading
         for thread in threading.enumerate():

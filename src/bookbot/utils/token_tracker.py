@@ -5,7 +5,6 @@ from pathlib import Path
 from time import time
 import asyncio
 from io import StringIO
-from contextlib import asynccontextmanager
 
 @dataclass
 class TokenUsage:
@@ -65,11 +64,12 @@ class TokenTracker:
             if self.log_buffer:
                 json.dump(log_entry, self.log_buffer)
                 self.log_buffer.write('\n')
+                self.log_buffer.flush()
             if self.log_file:
                 with open(str(self.log_file), 'a') as f:
                     json.dump(log_entry, f)
                     f.write('\n')
-            await self._flush_logs()
+                    f.flush()
         except Exception as e:
             self._error = e
             raise
