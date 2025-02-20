@@ -37,28 +37,18 @@ async def test_token_tracker_get_usage():
 
 @pytest.mark.asyncio
 async def test_token_tracker_logging():
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-        log_path = Path(f.name)
+    from io import StringIO
+    log_buffer = StringIO()
     
-    try:
-        tracker = TokenTracker(log_file=log_path)
-        await tracker.add_usage(100, 50)
-        await asyncio.sleep(0.1)  # Allow time for async logging
-        
-        # Ensure file is written before reading
-        await tracker._lock.acquire()
-        try:
-            with open(log_path, 'r') as f:
-                log_entry = json.loads(f.readline())
-                assert log_entry['input_tokens'] == 100
-                assert log_entry['output_tokens'] == 50
-                assert 'timestamp' in log_entry
-                assert 'cost' in log_entry
-        finally:
-            tracker._lock.release()
-    finally:
-        if log_path.exists():
-            log_path.unlink()
+    tracker = TokenTracker(log_buffer=log_buffer)
+    await tracker.add_usage(100, 50)
+    
+    log_buffer.seek(0)
+    log_entry = json.loads(log_buffer.readline())
+    assert log_entry['input_tokens'] == 100
+    assert log_entry['output_tokens'] == 50
+    assert 'timestamp' in log_entry
+    assert 'cost' in log_entry
 
 @pytest.mark.asyncio
 async def test_token_tracker_thread_safety():

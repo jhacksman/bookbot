@@ -12,18 +12,18 @@ class TokenUsage:
     cost: float
 
 class TokenTracker:
-    def __init__(self, log_file: Optional[Path] = None):
+    def __init__(self, log_file: Optional[Path] = None, log_buffer: Optional[StringIO] = None):
         self.input_tokens = 0
         self.output_tokens = 0
         self.log_file = log_file
+        self.log_buffer = log_buffer
         self._lock = asyncio.Lock()
     
     async def add_usage(self, input_tokens: int, output_tokens: int) -> None:
         async with self._lock:
             self.input_tokens += input_tokens
             self.output_tokens += output_tokens
-            if self.log_file:
-                await self._log_usage(input_tokens, output_tokens)
+            await self._log_usage(input_tokens, output_tokens)
     
     def _calculate_cost(self) -> float:
         return (self.input_tokens * 0.70 + self.output_tokens * 2.80) / 1_000_000
@@ -42,15 +42,21 @@ class TokenTracker:
             )
     
     async def _log_usage(self, input_tokens: int, output_tokens: int) -> None:
-        if self.log_file is None:
+        if not (self.log_file or self.log_buffer):
             return
+            
+        log_entry = {
+            'timestamp': time(),
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+            'cost': (input_tokens * 0.70 + output_tokens * 2.80) / 1_000_000
+        }
+        
         async with self._lock:
-            with open(str(self.log_file), 'a') as f:
-                json.dump({
-                    'timestamp': time(),
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'cost': (input_tokens * 0.70 + output_tokens * 2.80) / 1_000_000
-                }, f)
-                f.write('\n')
-                f.flush()  # Ensure writes are flushed to disk
+            if self.log_buffer:
+                json.dump(log_entry, self.log_buffer)
+                self.log_buffer.write('\n')
+            if self.log_file:
+                with open(str(self.log_file), 'a') as f:
+                    json.dump(log_entry, f)
+                    f.write('\n')
