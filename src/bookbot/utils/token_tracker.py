@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from time import time
 import asyncio
+from io import StringIO
 
 @dataclass
 class TokenUsage:
