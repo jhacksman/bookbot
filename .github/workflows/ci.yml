@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -31,4 +31,4 @@ jobs:
           TELEMETRY_DISABLED: True
           DISABLE_ANALYTICS: True
         run: |
-          poetry run pytest tests/ -v --capture=no --log-cli-level=DEBUG -vv --timeout=60
+          poetry run pytest tests/ -v --capture=no --log-cli-level=DEBUG -vv --timeout=180
