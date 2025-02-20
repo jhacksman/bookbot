@@ -142,6 +142,8 @@ async def test_venice_client_embed():
         assert isinstance(result["data"], list)
         assert len(result["data"]) > 0
         assert "embedding" in result["data"][0]
+        assert isinstance(result["data"][0]["embedding"], list)
+        assert len(result["data"][0]["embedding"]) > 0
         assert all(isinstance(x, float) for x in result["data"][0]["embedding"])
     finally:
         await client.cleanup()

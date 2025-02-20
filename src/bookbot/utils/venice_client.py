@@ -145,7 +145,7 @@ class VeniceClient:
                 len(input.split()),  # Approximate token count
                 0  # Embeddings don't have output tokens
             )
-            return result["data"][0]["embedding"]
+            return result
     
     async def cleanup(self):
         if self._session and not self._session.closed:
