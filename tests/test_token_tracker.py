@@ -36,19 +36,20 @@ async def test_token_tracker_get_usage():
     assert usage.cost == (100 * 0.70 + 50 * 2.80) / 1_000_000
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(5)  # Shorter timeout for CI
 async def test_token_tracker_logging():
     from io import StringIO
     log_buffer = StringIO()
     
-    tracker = TokenTracker(log_buffer=log_buffer)
-    await tracker.add_usage(100, 50)
-    
-    log_buffer.seek(0)
-    log_entry = json.loads(log_buffer.readline())
-    assert log_entry['input_tokens'] == 100
-    assert log_entry['output_tokens'] == 50
-    assert 'timestamp' in log_entry
-    assert 'cost' in log_entry
+    async with TokenTracker(log_buffer=log_buffer) as tracker:
+        await tracker.add_usage(100, 50)
+        
+        log_buffer.seek(0)
+        log_entry = json.loads(log_buffer.readline())
+        assert log_entry['input_tokens'] == 100
+        assert log_entry['output_tokens'] == 50
+        assert 'timestamp' in log_entry
+        assert 'cost' in log_entry
 
 @pytest.mark.asyncio
 async def test_token_tracker_thread_safety():
