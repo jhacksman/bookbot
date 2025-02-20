@@ -22,16 +22,21 @@ if sys.platform.startswith('linux'):
 def mock_chromadb(monkeypatch):
     class MockChromaClient:
         def __init__(self, *args, **kwargs):
-            pass
+            self.collections = {}
         
         async def heartbeat(self):
             return True
         
         def reset(self):
-            pass
+            self.collections.clear()
         
         def close(self):
             pass
+            
+        def get_or_create_collection(self, name, **kwargs):
+            if name not in self.collections:
+                self.collections[name] = {"name": name, "metadata": None}
+            return self.collections[name]
     
     monkeypatch.setattr("chromadb.Client", MockChromaClient)
     monkeypatch.setattr("chromadb.PersistentClient", MockChromaClient)

@@ -39,3 +39,10 @@ class AsyncRateLimiter:
         
         oldest_request = min(valid_requests)
         return max(0, self.time_window - (now - oldest_request))
+        
+    async def cleanup(self) -> None:
+        async with self._lock:
+            self.requests.clear()
+            
+    def __del__(self):
+        self.requests.clear()
