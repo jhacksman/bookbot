@@ -34,6 +34,7 @@ class VeniceClient:
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json"
         }
+        self._session = None
     
     def __getstate__(self):
         """Custom serialization that excludes the aiohttp session"""
@@ -53,7 +54,7 @@ class VeniceClient:
     
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            connector = aiohttp.TCPConnector(verify_ssl=False, force_close=True)
+            connector = aiohttp.TCPConnector(ssl=False, force_close=True)
             self._session = aiohttp.ClientSession(
                 connector=connector,
                 loop=asyncio.get_event_loop()
