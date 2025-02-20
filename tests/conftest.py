@@ -193,7 +193,8 @@ def mock_venice_client(monkeypatch):
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # For query agent tests, return temperature-dependent response
-                    response = f'{{"answer": "Test response with temperature {temp}", "citations": [], "confidence": {0.0 if "no_relevant_content" in prompt.lower() else temp}}}'
+                    variant = hash(f"{prompt}{temp}") % 1000  # Deterministic but different for each temp
+                    response = f'{{"answer": "Response variant {variant}", "citations": [], "confidence": {0.0 if "no_relevant_content" in prompt.lower() else temp}}}'
                 
                 return {
                     "choices": [{
