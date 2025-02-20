@@ -199,6 +199,15 @@ def mock_venice_client(monkeypatch):
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
                         response = {"answer": f"Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": 0.5}
                 
+                # Ensure response is a dict
+                if isinstance(response, str):
+                    try:
+                        import json
+                        response = json.loads(response)
+                    except:
+                        # If it's not JSON, wrap it in our standard response format
+                        response = {"answer": response, "citations": [], "confidence": 0.5}
+                
                 return {
                     "choices": [{
                         "text": response
