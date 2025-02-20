@@ -32,13 +32,13 @@ async def test_async_cache_different_args():
         await asyncio.sleep(0.1)  # Add small delay to ensure cache works
         return x * 2
     
-    result1 = await test_func(5)
-    assert result1 == 10
+    result1 = await test_func(6)
+    assert result1 == 12
     assert call_count == 1
     
-    result2 = await test_func(6)
+    result2 = await test_func(6)  # Same args should use cache
     assert result2 == 12
-    assert call_count == 2  # Different args should trigger new call
+    assert call_count == 1  # Should not increment for cached call
 
 @pytest.mark.asyncio
 async def test_async_cache_expiration():

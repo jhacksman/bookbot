@@ -43,7 +43,7 @@ async def test_query_agent_no_relevant_content(async_session):
     agent = QueryAgent(config, async_session)
     await agent.initialize()
     
-    result = await agent.process({"question": "What is the meaning of life?"})
+    result = await agent.process({"question": "What is the meaning of life?", "context": None})
     assert result["status"] == "success"
     assert "response" in result
     assert "citations" in result
@@ -87,10 +87,12 @@ async def test_query_agent_with_content(async_session):
             metadata=[{"book_id": str(book.id)}],
             ids=[str(summary.vector_id)]
         )
+        await asyncio.sleep(0.1)  # Allow time for async operations
         
         # Test querying
         result = await agent.process({
-            "question": "What is this book about?"
+            "question": "What is this book about?",
+            "context": None
         })
         
         assert result["status"] == "success"
@@ -104,8 +106,9 @@ async def test_query_agent_with_content(async_session):
             metadata=[{"book_id": str(book.id)}],
             ids=["test1"]
         )
+        await asyncio.sleep(0.1)  # Allow time for async operations
         
-        result = await agent.process({"question": "What is this book about?"})
+        result = await agent.process({"question": "What is this book about?", "context": None})
         assert result["status"] == "success"
         assert "response" in result
         assert "citations" in result

@@ -38,6 +38,14 @@ def mock_chromadb(monkeypatch):
                 self.collections[name] = MockCollection(name)
             return self.collections[name]
             
+        def get_collection(self, name):
+            if name not in self.collections:
+                raise ValueError(f"Collection {name} does not exist")
+            return self.collections[name]
+            
+        def list_collections(self):
+            return list(self.collections.values())
+            
     class MockCollection:
         def __init__(self, name):
             self.name = name
