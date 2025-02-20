@@ -93,7 +93,11 @@ async def test_venice_client_caching():
         result3 = await client.generate("test prompt", temperature=0.8)
         result3_text = result3["choices"][0]["text"]
         assert isinstance(result3_text, str)
-        assert result3_text != result1_text  # Different temperature = different response
+        # Parse both as JSON to compare the actual data structures
+        result3_json = json.loads(result3_text)
+        result1_json = json.loads(result1_text)
+        assert result3_json != result1_json  # Different temperature = different response
+        assert "temperature 0.8" in result3_json["answer"]  # Verify temperature is reflected in response
     finally:
         await client.cleanup()
 
