@@ -1,6 +1,15 @@
 import pytest
 import asyncio
 import sys
+import os
+
+# Disable all telemetry and logging
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_LOGGING_ENABLE"] = "False"
+os.environ["POSTHOG_DISABLED"] = "True"
+os.environ["DISABLE_TELEMETRY"] = "True"
+os.environ["TELEMETRY_DISABLED"] = "True"
+os.environ["DISABLE_ANALYTICS"] = "True"
 
 if sys.platform.startswith('linux'):
     import uvloop
