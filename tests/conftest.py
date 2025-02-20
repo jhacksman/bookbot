@@ -132,15 +132,16 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     )
     
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        async def setup_db():
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            return async_sessionmaker(
+                engine,
+                expire_on_commit=False,
+                class_=AsyncSession
+            )()
         
-        session = async_sessionmaker(
-            engine,
-            expire_on_commit=False,
-            class_=AsyncSession
-        )()
-        
+        session = await setup_db()
         yield session
         
         await session.rollback()
