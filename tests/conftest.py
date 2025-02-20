@@ -133,14 +133,8 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
     )
     
     try:
-        async def setup_db():
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            return async_sessionmaker(
-                engine,
-                expire_on_commit=False,
-                class_=AsyncSession
-            )()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
         
         async_session_factory = async_sessionmaker(
             engine,
@@ -148,16 +142,9 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
             class_=AsyncSession
         )
         
-        async def get_session():
-            async with async_session_factory() as session:
-                yield session
-        
-        yield get_session
-        
-        # Cleanup
         async with async_session_factory() as session:
-        await session.rollback()
-        await session.close()
+            yield session
+            await session.rollback()
     finally:
         await engine.dispose()
         await asyncio.sleep(0.1)  # Allow time for connections to close

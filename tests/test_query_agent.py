@@ -56,16 +56,15 @@ async def test_query_agent_with_content(async_session):
         await agent.initialize()
         assert agent.is_active
         
-        async for session in async_session():
-            async with session.begin():
-                book = Book(
-                    title="Test Book",
-                    author="Test Author",
-                    content_hash="test123",
+        async with async_session.begin():
+            book = Book(
+                title="Test Book",
+                author="Test Author",
+                content_hash="test123",
                 vector_id="vec123"
             )
-            session.add(book)
-            await session.flush()
+            async_session.add(book)
+            await async_session.flush()
             
             summary = Summary(
                 book_id=book.id,
@@ -73,10 +72,9 @@ async def test_query_agent_with_content(async_session):
                 content="This is a test summary about AI.",
                 vector_id="vec456"
             )
-            session.add(summary)
-            await session.flush()
-        
-        try:
+            async_session.add(summary)
+            await async_session.flush()
+            
             await agent.vector_store.add_texts(
                 texts=[str(summary.content)],
                 metadata=[{"book_id": str(book.id)}],
@@ -105,9 +103,6 @@ async def test_query_agent_with_content(async_session):
             assert "response" in result
             assert "citations" in result
             assert result["confidence"] > 0.0
-        except Exception as e:
-            await session.rollback()
-            raise e
     finally:
         if agent.is_active:
             await agent.cleanup()
