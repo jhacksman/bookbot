@@ -58,8 +58,8 @@ def mock_chromadb(monkeypatch):
                 self.texts.extend(documents)
                 self.metadatas.extend(metadatas or [None] * len(documents))
                 self.ids.extend(ids or [str(i) for i in range(len(documents))])
-                return self.ids[-len(documents):]
-            return []
+                return {"ids": self.ids[-len(documents):]}
+            return {"ids": []}
             
         def query(self, query_texts, n_results=1, where=None, **kwargs):
             if not self.texts:
@@ -185,7 +185,7 @@ def mock_venice_client(monkeypatch):
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # Cache test - return consistent response for same temperature
-                    response = f'{{"answer": "Test response {temp}", "citations": [], "confidence": 0.0}}'
+                    response = f'{{"answer": "Test response", "citations": [], "confidence": 0.0}}'
                 
                 return {
                     "choices": [{

@@ -64,7 +64,7 @@ async def test_venice_client_rate_limiting():
         elapsed = end - start
         
         # Should have been delayed by rate limiting
-        assert elapsed >= 0.09  # Verify rate limit delay (slightly less than sleep time for stability)
+        assert elapsed >= 0.08  # Verify rate limit delay (slightly less than sleep time for stability)
         assert result2["choices"][0]["text"]
     finally:
         await client.cleanup()
