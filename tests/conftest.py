@@ -58,8 +58,8 @@ def mock_chromadb(monkeypatch):
                 self.texts.extend(documents)
                 self.metadatas.extend(metadatas or [None] * len(documents))
                 self.ids.extend(ids or [str(i) for i in range(len(documents))])
-                return {"ids": self.ids[-len(documents):]}
-            return {"ids": []}
+                return ids or [str(i) for i in range(len(documents))]
+            return []
             
         def query(self, query_texts, n_results=1, where=None, **kwargs):
             if not self.texts:
@@ -184,8 +184,8 @@ def mock_venice_client(monkeypatch):
                 elif "process_epub" in prompt.lower():
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
-                    # Cache test - return consistent response for same temperature
-                    response = f'{{"answer": "Test response", "citations": [], "confidence": 0.0}}'
+                    # Cache test - return temperature-dependent response
+                    response = f'{{"answer": "Test response for temp {temp}", "citations": [], "confidence": 0.0}}'
                 
                 return {
                     "choices": [{

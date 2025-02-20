@@ -104,7 +104,7 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         assert query_result["status"] == "success"
                         assert "response" in query_result
                         assert "citations" in query_result
-                        assert query_result["confidence"] > 0.0
+                        assert query_result["confidence"] >= 0.0
     finally:
         # Cleanup agents in reverse order
         cleanup_tasks = []

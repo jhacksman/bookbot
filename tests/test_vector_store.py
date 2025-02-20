@@ -33,8 +33,8 @@ async def test_add_texts(test_persist_dir):
         metadata = [{"source": "test1"}, {"source": "test2"}]
         ids = ["1", "2"]
         
-        result_ids = await store.add_texts(texts, metadata, ids)
-        assert result_ids == ids
+        result = await store.add_texts(texts, metadata, ids)
+        assert result == ids
         
         # Test persistence by creating a new instance
         await store.cleanup()
