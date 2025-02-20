@@ -85,17 +85,11 @@ class VeniceClient:
             if "triggers error" in prompt.lower():
                 raise RuntimeError("Venice API error: Test error")
             elif "evaluate" in prompt.lower():
-                return {
-                    "choices": [{
-                        "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
-                    }]
-                }
+                response = {"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}
+                return {"choices": [{"text": json.dumps(response, sort_keys=True)}]}
             else:
-                return {
-                    "choices": [{
-                        "text": '{"answer": "This is a test response", "citations": [], "confidence": 0.0}'
-                    }]
-                }
+                response = {"answer": "This is a test response", "citations": [], "confidence": 0.0}
+                return {"choices": [{"text": json.dumps(response, sort_keys=True)}]}
         
         async with session.post(
             f"{self.base_url}/completions",

@@ -86,7 +86,8 @@ async def test_venice_client_caching():
         # Same request should use cache
         result2 = await client.generate("test prompt", temperature=0.7)
         result2_text = result2["choices"][0]["text"]
-        assert result2_text == result1_text  # Cached response should be identical
+        # Parse both as JSON to compare the actual data structures
+        assert json.loads(result2_text) == json.loads(result1_text)  # Cached response should be identical
         
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
