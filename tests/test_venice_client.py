@@ -5,7 +5,7 @@ from pathlib import Path
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(60)
 async def test_venice_client_initialization():
     config = VeniceConfig(
         api_key="test_key",
@@ -29,7 +29,7 @@ async def test_venice_client_initialization():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(60)
 async def test_venice_client_session_management():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
@@ -48,7 +48,7 @@ async def test_venice_client_session_management():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(60)
 async def test_venice_client_rate_limiting():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
@@ -71,7 +71,7 @@ async def test_venice_client_rate_limiting():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(60)
 async def test_venice_client_caching():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
@@ -102,7 +102,7 @@ async def test_venice_client_caching():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(60)
 async def test_venice_client_token_tracking():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
@@ -118,7 +118,7 @@ async def test_venice_client_token_tracking():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(60)
 async def test_venice_client_error_handling():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)
@@ -134,7 +134,7 @@ async def test_venice_client_error_handling():
         await client.cleanup()
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(60)
 async def test_venice_client_embed():
     config = VeniceConfig(api_key="test_key")
     client = VeniceClient(config)

@@ -9,12 +9,13 @@ from bookbot.utils.calibre_connector import CalibreConnector
 
 @pytest.fixture
 async def mock_calibre_db(tmp_path):
-    db_path = tmp_path / "metadata.db"
-    calibre = CalibreConnector(db_path)
-    await calibre.initialize()
-    
-    # Add test books
-    await calibre.add_book({
+    db_path = str(tmp_path / "metadata.db")
+    calibre = CalibreConnector(Path(db_path))
+    try:
+        await calibre.initialize()
+        
+        # Add test books
+        await calibre.add_book({
         "title": "Test Book 1",
         "author": "Test Author 1",
         "format": "EPUB",
@@ -34,7 +35,9 @@ async def mock_calibre_db(tmp_path):
         "last_modified": datetime.now()
     })
     
-    return db_path
+        return str(db_path)
+    finally:
+        await calibre.cleanup()
 
 @pytest.mark.asyncio
 async def test_librarian_calibre_initialization(venice_config, mock_calibre_db):

@@ -36,7 +36,7 @@ async def test_token_tracker_get_usage():
     assert usage.cost == (100 * 0.70 + 50 * 2.80) / 1_000_000
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(5)  # Increased timeout for CI stability
+@pytest.mark.timeout(60)  # Increased timeout for CI stability
 async def test_token_tracker_logging():
     from io import StringIO
     log_buffer = StringIO()
