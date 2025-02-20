@@ -52,16 +52,16 @@ async def test_query_agent_no_relevant_content(async_session):
 async def test_query_agent_with_content(async_session):
     config = VeniceConfig(api_key="test_key")
     agent = QueryAgent(config, async_session)
-    async for session in async_session():
-        try:
-            await agent.initialize()
-            assert agent.is_active
-            
+    try:
+        await agent.initialize()
+        assert agent.is_active
+        
+        async for session in async_session():
             async with session.begin():
-            book = Book(
-                title="Test Book",
-                author="Test Author",
-                content_hash="test123",
+                book = Book(
+                    title="Test Book",
+                    author="Test Author",
+                    content_hash="test123",
                 vector_id="vec123"
             )
             session.add(book)
@@ -109,6 +109,5 @@ async def test_query_agent_with_content(async_session):
             await session.rollback()
             raise e
     finally:
-        await session.close()
         if agent.is_active:
             await agent.cleanup()
