@@ -195,22 +195,9 @@ def mock_venice_client(monkeypatch):
                             response = "Different response for temperature 0.8"
                         else:
                             response = f"Response for temperature {temp:.6f}"
-                        return {
-                            "choices": [{
-                                "text": response
-                            }]
-                        }
                     else:
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
-                        if "test prompt" in prompt.lower():
-                            if temp == 0.7:
-                                response = "Response for temperature 0.7"
-                            elif temp == 0.8:
-                                response = "Different response for temperature 0.8"
-                            else:
-                                response = f"Response for temperature {temp:.6f}"
-                        else:
-                            response = f'Response variant {variant} (temp={temp:.6f})'
+                        response = f'Response variant {variant} (temp={temp:.6f})'
                 
                 return {
                     "choices": [{
