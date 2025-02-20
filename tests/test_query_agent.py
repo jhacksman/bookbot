@@ -1,11 +1,9 @@
 import pytest
 import asyncio
+import json
+from unittest.mock import AsyncMock, patch
 from bookbot.agents.query.agent import QueryAgent
 from bookbot.utils.venice_client import VeniceConfig
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-from sqlalchemy import text
 from bookbot.database.models import Base, Book, Summary
 
 @pytest.mark.asyncio
@@ -50,82 +48,113 @@ async def test_query_agent_no_relevant_content(async_session):
         await agent.cleanup()
 
 @pytest.mark.asyncio
-async def test_query_agent_with_content():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=False,
-        poolclass=NullPool
-    )
-    
-    # Create a new session factory
-    session_factory = async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autoflush=True,
-        autocommit=False
-    )
-    
-    # Use a shared in-memory database with a single connection
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=True,
-        poolclass=NullPool,
-        connect_args={"check_same_thread": False}
-    )
-    
-    # Create tables and run test in a single transaction
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def test_query_preprocessing(async_session):
+    config = VeniceConfig(api_key="test_key")
+    agent = QueryAgent(config, async_session)
+    try:
+        await agent.initialize()
+        result = await agent.process({"question": "  What   is  this  book   about?\n\r"})
+        assert result["status"] == "success"
+        assert "response" in result
+        assert "citations" in result
+        assert isinstance(result["confidence"], float)
+        assert 0.0 <= result["confidence"] <= 1.0
         
-        # Create session with the same connection
-        session = AsyncSession(bind=conn, expire_on_commit=False)
-        
-        try:
-            config = VeniceConfig(api_key="test_key")
-            agent = QueryAgent(config, session)
-            await agent.initialize()
-            assert agent.is_active
+        # Test cache hit
+        cached_result = await agent.process({"question": "  What   is  this  book   about?\n\r"})
+        assert cached_result == result
+    finally:
+        await agent.cleanup()
 
-            # Add test data within a transaction
-            async with session.begin():
-                book = Book(
-                    title="Test Book",
-                    author="Test Author",
-                    content_hash="test123",
-                    vector_id="vec123"
-                )
-                session.add(book)
-                
-                summary = Summary(
-                    book_id=book.id,
-                    level=0,
-                    content="This is a test summary about AI.",
-                    vector_id="vec456"
-                )
-                session.add(summary)
-            
-            # Add test data to vector store once
-            await agent.vector_store.add_texts(
-                texts=[summary.content],
-                metadata=[{"book_id": str(book.id), "type": "summary", "level": summary.level}],
-                ids=[summary.vector_id]
-            )
-            
-            # Wait for vector store to be ready
-            await asyncio.sleep(0.1)
-            
-            # Run query
-            result = await agent.process({
-                "question": "What is this book about?",
-                "context": None
-            })
-            assert result["status"] == "success"
-            assert "response" in result
-            assert "citations" in result
-            assert isinstance(result["confidence"], float)
-            assert 0.0 <= result["confidence"] <= 1.0
-        finally:
-            await agent.cleanup()
-            await session.close()
-            await engine.dispose()
+@pytest.mark.asyncio
+async def test_citation_formatting(async_session):
+    config = VeniceConfig(api_key="test_key")
+    agent = QueryAgent(config, async_session)
+    try:
+        await agent.initialize()
+        
+        # Add test data
+        book = Book(
+            title="Test Book",
+            author="Test Author",
+            content_hash="test123",
+            vector_id="vec123"
+        )
+        async_session.add(book)
+        await async_session.commit()
+        
+        # Mock vector store search
+        agent.vector_store.similarity_search = AsyncMock(return_value=[{
+            "content": "This is a test summary about AI.",
+            "metadata": {"book_id": str(book.id)},
+            "distance": 0.2
+        }])
+        
+        # Mock Venice response
+        mock_response = {
+            "choices": [{
+                "text": json.dumps({
+                    "answer": "Test answer [1]",
+                    "citations": ["[1]"],
+                    "confidence": 0.8
+                })
+            }]
+        }
+        agent.venice.generate = AsyncMock(return_value=mock_response)
+        
+        result = await agent.process({"question": "What is this book about?"})
+        assert result["status"] == "success"
+        assert len(result["citations"]) > 0
+        
+        citation = result["citations"][0]
+        assert citation["id"] == "[1]"
+        assert citation["book_id"] == str(book.id)
+        assert citation["title"] == "Test Book"
+        assert citation["author"] == "Test Author"
+        assert citation["quoted_text"] == "This is a test summary about AI."
+        assert citation["relevance_score"] == 0.8
+        assert isinstance(result["confidence"], float)
+        assert 0.0 <= result["confidence"] <= 1.0
+    finally:
+        await agent.cleanup()
+
+@pytest.mark.asyncio
+async def test_query_error_handling(async_session):
+    config = VeniceConfig(api_key="test_key")
+    agent = QueryAgent(config, async_session)
+    try:
+        await agent.initialize()
+        
+        # Test invalid input
+        result = await agent.process({})
+        assert result["status"] == "error"
+        assert "message" in result
+        
+        # Test empty question
+        result = await agent.process({"question": ""})
+        assert result["status"] == "error"
+        assert "message" in result
+        
+        # Test whitespace-only question
+        result = await agent.process({"question": "   \n\r\t   "})
+        assert result["status"] == "error"
+        assert "message" in result
+        
+        # Test vector store error
+        agent.vector_store.similarity_search = AsyncMock(side_effect=Exception("Vector store error"))
+        result = await agent.process({"question": "What is this about?"})
+        assert result["status"] == "error"
+        assert "message" in result
+        
+        # Test Venice API error
+        agent.vector_store.similarity_search = AsyncMock(return_value=[{
+            "content": "Test content",
+            "metadata": {"book_id": "123"},
+            "distance": 0.2
+        }])
+        agent.venice.generate = AsyncMock(side_effect=Exception("Venice API error"))
+        result = await agent.process({"question": "What is this about?"})
+        assert result["status"] == "error"
+        assert "message" in result
+    finally:
+        await agent.cleanup()

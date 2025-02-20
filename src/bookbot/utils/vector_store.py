@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Callable
 import uuid
 import datetime
 import os
@@ -8,17 +8,20 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.api.types import Documents, Embeddings, Metadata
 import numpy as np
+from .venice_client import VeniceClient
 
 class VectorStore:
     def __init__(
         self,
         collection_name: str = "bookbot",
         persist_dir: str = "chroma",
-        max_batch_size: int = 100
+        max_batch_size: int = 100,
+        venice_client: Optional[VeniceClient] = None
     ):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
         self.max_batch_size = max_batch_size
+        self.venice_client = venice_client
         
         try:
             os.makedirs(persist_dir, exist_ok=True)
@@ -30,17 +33,32 @@ class VectorStore:
                 anonymized_telemetry=False
             )
 
-            # Use in-memory client for tests to avoid permission issues
             self.client = chromadb.Client(settings)
             
-            # Use a simple embedding function for testing
-            class DummyEmbedding:
-                def __call__(self, input):
-                    if isinstance(input, str):
-                        input = [input]
-                    return [[0.1] * 384 for _ in input]
+            if venice_client:
+                class VeniceEmbedding:
+                    def __init__(self, client: VeniceClient):
+                        self.client = client
+                        
+                    async def __call__(self, input: Union[str, List[str]]) -> List[List[float]]:
+                        if isinstance(input, str):
+                            input = [input]
+                        embeddings = []
+                        for text in input:
+                            result = await self.client.embed(text)
+                            embeddings.append(result["data"][0]["embedding"])
+                        return embeddings
+                
+                self.embedding_function = VeniceEmbedding(venice_client)
+            else:
+                class DummyEmbedding:
+                    def __call__(self, input):
+                        if isinstance(input, str):
+                            input = [input]
+                        return [[0.1] * 384 for _ in input]
+                
+                self.embedding_function = DummyEmbedding()
             
-            self.embedding_function = DummyEmbedding()
             self.collection = self.client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"},
@@ -71,11 +89,24 @@ class VectorStore:
                 batch_metadata = metadata[i:i + self.max_batch_size]
                 batch_ids = ids[i:i + self.max_batch_size]
                 
-                self.collection.add(
-                    documents=batch_texts,
-                    metadatas=[{k: str(v) for k, v in m.items()} for m in batch_metadata],
-                    ids=batch_ids
-                )
+                if self.venice_client:
+                    embeddings = []
+                    for text in batch_texts:
+                        result = await self.venice_client.embed(text)
+                        embeddings.append(result["data"][0]["embedding"])
+                    
+                    self.collection.add(
+                        documents=batch_texts,
+                        metadatas=[{k: str(v) for k, v in m.items()} for m in batch_metadata],
+                        ids=batch_ids,
+                        embeddings=embeddings
+                    )
+                else:
+                    self.collection.add(
+                        documents=batch_texts,
+                        metadatas=[{k: str(v) for k, v in m.items()} for m in batch_metadata],
+                        ids=batch_ids
+                    )
                 
                 if i + self.max_batch_size < len(texts):
                     logging.info(f"Added batch {i//self.max_batch_size + 1} of {(len(texts)-1)//self.max_batch_size + 1}")
@@ -92,11 +123,19 @@ class VectorStore:
         metadata_filter: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         try:
-            results = self.collection.query(
-                query_texts=[query],
-                n_results=k,
-                where={k: str(v) for k, v in (metadata_filter or {}).items()}
-            )
+            if self.venice_client:
+                query_embedding = await self.venice_client.embed(query)
+                results = self.collection.query(
+                    query_embeddings=[query_embedding["data"][0]["embedding"]],
+                    n_results=k,
+                    where={k: str(v) for k, v in (metadata_filter or {}).items()}
+                )
+            else:
+                results = self.collection.query(
+                    query_texts=[query],
+                    n_results=k,
+                    where={k: str(v) for k, v in (metadata_filter or {}).items()}
+                )
             
             if not results or not results.get('documents') or not results['documents'][0]:
                 return []
