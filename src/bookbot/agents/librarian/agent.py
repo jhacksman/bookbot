@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 import json
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.future import select
 from ..base import Agent
@@ -7,9 +8,13 @@ from ...database.models import Base, Book, Summary
 from ...utils.venice_client import VeniceClient, VeniceConfig
 from ...utils.vector_store import VectorStore
 from ...utils.epub_processor import EPUBProcessor
+from ...utils.calibre_connector import CalibreConnector
 
 class LibrarianAgent(Agent):
-    def __init__(self, venice_config: VeniceConfig, db_url: str = "sqlite+aiosqlite:///:memory:", vram_limit: float = 16.0):
+    def __init__(self, venice_config: VeniceConfig, 
+             db_url: str = "sqlite+aiosqlite:///:memory:",
+             calibre_path: Optional[Path] = None,
+             vram_limit: float = 16.0):
         super().__init__(vram_limit)
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("librarian_agent")
@@ -20,14 +25,19 @@ class LibrarianAgent(Agent):
             class_=AsyncSession,
             expire_on_commit=False
         )
+        self.calibre = CalibreConnector(calibre_path) if calibre_path else None
     
     async def initialize(self) -> None:
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        if hasattr(self, 'calibre'):
+            await self.calibre.initialize()
         self.is_active = True
     
     async def cleanup(self) -> None:
         await self.engine.dispose()
+        if hasattr(self, 'calibre'):
+            await self.calibre.cleanup()
         self.is_active = False
     
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -119,6 +129,60 @@ class LibrarianAgent(Agent):
                 "message": str(e)
             }
     
+    async def sync_calibre_library(self) -> Dict[str, Any]:
+        if not hasattr(self, 'calibre') or not self.calibre:
+            return {"status": "error", "message": "Calibre integration not configured"}
+        
+        try:
+            books = await self.calibre.get_books()
+            synced_count = 0
+            
+            for book in books:
+                async with self.async_session() as session:
+                    result = await session.execute(
+                        select(Book).where(Book.title == book["title"])
+                    )
+                    existing = result.scalar_one_or_none()
+                    
+                    calibre_metadata = {
+                        "calibre_id": book["id"],
+                        "format": book["format"],
+                        "identifiers": book["identifiers"],
+                        "tags": book["tags"],
+                        "series": book.get("series"),
+                        "series_index": book.get("series_index"),
+                        "last_modified": book["last_modified"].isoformat() if book.get("last_modified") else None
+                    }
+                    
+                    if existing:
+                        # Update metadata while preserving existing BookBot data
+                        current_metadata = json.loads(existing.book_metadata) if existing.book_metadata else {}
+                        current_metadata.update(calibre_metadata)
+                        existing.book_metadata = json.dumps(current_metadata)
+                        await session.commit()
+                    else:
+                        # Add new book
+                        new_book = Book(
+                            title=book["title"],
+                            author=book["author"],
+                            book_metadata=json.dumps(calibre_metadata)
+                        )
+                        session.add(new_book)
+                        await session.commit()
+                    
+                    synced_count += 1
+            
+            return {
+                "status": "success",
+                "books_synced": synced_count,
+                "total_books": len(books)
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         action = input_data.get("action")
         if not action:
@@ -148,6 +212,8 @@ class LibrarianAgent(Agent):
                 }
             elif action == "process_epub":
                 return await self.process_epub(input_data["file_path"])
+            elif action == "sync_calibre":
+                return await self.sync_calibre_library()
             else:
                 return {
                     "status": "error",

@@ -13,8 +13,10 @@ def async_cache(ttl: int = 3600):
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            # Skip self argument for method caching
+            cache_args = args[1:] if len(args) > 0 and hasattr(args[0], '__class__') else args
             key = hashlib.sha256(
-                json.dumps([args, kwargs], sort_keys=True).encode()
+                json.dumps([cache_args, kwargs], sort_keys=True).encode()
             ).hexdigest()
             
             now = time.time()

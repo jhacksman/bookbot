@@ -1,5 +1,11 @@
 import pytest
+import asyncio
+import sys
 from typing import AsyncGenerator, Dict, Any, cast
+
+if sys.platform.startswith('linux'):
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.agents.summarization.agent import SummarizationAgent
 from bookbot.agents.librarian.agent import LibrarianAgent
@@ -12,16 +18,28 @@ from bookbot.database.models import Base
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    engine: AsyncEngine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    session_maker = async_sessionmaker(
-        engine, expire_on_commit=False
+    engine: AsyncEngine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        echo=True,
+        pool_pre_ping=True,
+        pool_recycle=3600
     )
-    async with session_maker() as session:
-        yield session
-    await engine.dispose()
+    
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        session_maker = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+            class_=AsyncSession
+        )
+        
+        async with session_maker() as session:
+            yield session
+            await session.rollback()
+    finally:
+        await engine.dispose()
 
 @pytest.fixture
 def vram_manager():

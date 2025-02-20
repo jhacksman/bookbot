@@ -22,7 +22,7 @@ class AsyncRateLimiter:
     
     async def wait_for_token(self) -> None:
         while not await self.acquire():
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)  # Poll more frequently for tests
     
     def get_current_usage(self) -> int:
         now = time()
@@ -39,3 +39,10 @@ class AsyncRateLimiter:
         
         oldest_request = min(valid_requests)
         return max(0, self.time_window - (now - oldest_request))
+        
+    async def cleanup(self) -> None:
+        async with self._lock:
+            self.requests.clear()
+            
+    def __del__(self):
+        self.requests.clear()

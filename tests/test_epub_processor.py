@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 import os
 from bookbot.utils.epub_processor import EPUBProcessor
 

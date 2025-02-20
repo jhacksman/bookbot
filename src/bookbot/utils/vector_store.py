@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import uuid
 import datetime
 import os
@@ -6,7 +6,7 @@ import sys
 import logging
 import chromadb
 from chromadb.config import Settings
-from chromadb.api.types import Documents, Embeddings, EmbeddingFunction, Metadata
+from chromadb.api.types import Documents, Embeddings, Metadata
 import numpy as np
 
 class VectorStore:
@@ -24,7 +24,7 @@ class VectorStore:
             os.makedirs(persist_dir, exist_ok=True)
             os.chmod(persist_dir, 0o777)  # Ensure write permissions for tests
             
-            settings = chromadb.Settings(
+            settings = Settings(
                 allow_reset=True,
                 is_persistent=True,
                 anonymized_telemetry=False
@@ -34,7 +34,7 @@ class VectorStore:
             self.client = chromadb.Client(settings)
             
             # Use a simple embedding function for testing
-            class DummyEmbedding(chromadb.api.types.EmbeddingFunction):
+            class DummyEmbedding:
                 def __call__(self, input):
                     if isinstance(input, str):
                         input = [input]
@@ -54,7 +54,7 @@ class VectorStore:
     async def add_texts(
         self,
         texts: List[str],
-        metadata: Optional[List[Dict[str, Any]]] = None,
+        metadata: Optional[List[Dict[str, Union[str, int]]]] = None,
         ids: Optional[List[str]] = None
     ) -> List[str]:
         if not texts:
@@ -73,7 +73,7 @@ class VectorStore:
                 
                 self.collection.add(
                     documents=batch_texts,
-                    metadatas=batch_metadata,
+                    metadatas=[{k: str(v) for k, v in m.items()} for m in batch_metadata],
                     ids=batch_ids
                 )
                 
@@ -95,7 +95,7 @@ class VectorStore:
             results = self.collection.query(
                 query_texts=[query],
                 n_results=k,
-                where=metadata_filter if metadata_filter else None
+                where={k: str(v) for k, v in (metadata_filter or {}).items()}
             )
             
             if not results or not results.get('documents') or not results['documents'][0]:
@@ -117,11 +117,22 @@ class VectorStore:
             logging.error(f"Failed to perform similarity search: {str(e)}")
             raise
             
-    def __del__(self):
+    async def cleanup(self):
+        """Clean up resources."""
         try:
             if hasattr(self, 'client'):
                 del self.client
-                logging.info("Vector store cleanup completed")
+                self.client = None
+            if hasattr(self, 'collection'):
+                self.collection = None
+            logging.info("Vector store cleanup completed")
         except Exception as e:
             logging.error(f"Failed to cleanup vector store: {str(e)}")
+            
+    def __del__(self):
+        """Fallback cleanup."""
+        try:
+            if hasattr(self, 'client'):
+                del self.client
+        except:
             pass
