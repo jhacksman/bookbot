@@ -24,7 +24,6 @@ class VeniceConfig(BaseModel):
 
 class VeniceClient:
     _session: Optional[aiohttp.ClientSession] = None
-    _rate_limiter = AsyncRateLimiter(rate_limit=20)
     _token_tracker = TokenTracker(Path("venice_usage.jsonl"))
     
     def __init__(self, config: VeniceConfig):
@@ -35,6 +34,14 @@ class VeniceClient:
             "Content-Type": "application/json"
         }
         self._session = None
+        self._rate_limiter = AsyncRateLimiter(
+            RateLimitConfig(
+                requests_per_window=20,
+                window_seconds=60,
+                max_burst=5,
+                retry_interval=0.1
+            )
+        )
     
     def __getstate__(self):
         """Custom serialization that excludes the aiohttp session"""

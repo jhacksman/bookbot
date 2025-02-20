@@ -1,48 +1,85 @@
 import asyncio
 from asyncio import Lock
-from time import time
-from typing import Optional
+from time import time, monotonic
+from typing import Optional, List, Dict
+from dataclasses import dataclass
+
+@dataclass
+class RateLimitConfig:
+    requests_per_window: int
+    window_seconds: int = 60
+    max_burst: int = 0
+    retry_interval: float = 0.1
 
 class AsyncRateLimiter:
-    def __init__(self, rate_limit: int, time_window: int = 60):
-        self.rate_limit = rate_limit
-        self.time_window = time_window
-        self.requests = []
+    def __init__(self, config: RateLimitConfig):
+        self.config = config
+        self._requests: List[float] = []
         self._lock = Lock()
+        self._burst_tokens = config.max_burst
+        self._last_refill = monotonic()
     
     async def acquire(self) -> bool:
         async with self._lock:
-            now = time()
-            self.requests = [t for t in self.requests if now - t < self.time_window]
+            now = monotonic()
+            # Clean expired requests
+            self._requests = [t for t in self._requests if now - t < self.config.window_seconds]
             
-            if len(self.requests) < self.rate_limit:
-                self.requests.append(now)
+            # Check if under rate limit
+            if len(self._requests) < self.config.requests_per_window:
+                self._requests.append(now)
                 return True
+                
+            # Try to use burst token if available
+            if self._burst_tokens > 0:
+                self._burst_tokens -= 1
+                self._requests.append(now)
+                return True
+                
             return False
     
-    async def wait_for_token(self) -> None:
-        while not await self.acquire():
-            await asyncio.sleep(0.1)  # Poll more frequently for tests
+    async def wait_for_token(self, timeout: Optional[float] = None) -> bool:
+        start_time = monotonic()
+        while True:
+            if await self.acquire():
+                return True
+                
+            if timeout is not None:
+                elapsed = monotonic() - start_time
+                if elapsed >= timeout:
+                    return False
+                    
+            wait_time = await self.get_time_until_next_token()
+            await asyncio.sleep(min(wait_time, self.config.retry_interval))
     
-    def get_current_usage(self) -> int:
-        now = time()
-        return len([t for t in self.requests if now - t < self.time_window])
+    async def get_current_usage(self) -> Dict[str, int]:
+        async with self._lock:
+            now = monotonic()
+            self._requests = [t for t in self._requests if now - t < self.config.window_seconds]
+            return {
+                "current_requests": len(self._requests),
+                "burst_tokens": self._burst_tokens,
+                "window_limit": self.config.requests_per_window
+            }
     
-    def get_time_until_next_token(self) -> Optional[float]:
-        if len(self.requests) < self.rate_limit:
-            return 0
-        
-        now = time()
-        valid_requests = [t for t in self.requests if now - t < self.time_window]
-        if len(valid_requests) < self.rate_limit:
-            return 0
-        
-        oldest_request = min(valid_requests)
-        return max(0, self.time_window - (now - oldest_request))
-        
+    async def get_time_until_next_token(self) -> float:
+        async with self._lock:
+            if len(self._requests) < self.config.requests_per_window or self._burst_tokens > 0:
+                return 0
+            
+            now = monotonic()
+            valid_requests = [t for t in self._requests if now - t < self.config.window_seconds]
+            if len(valid_requests) < self.config.requests_per_window:
+                return 0
+            
+            oldest_request = min(valid_requests)
+            return max(0, self.config.window_seconds - (now - oldest_request))
+    
+    async def refill_burst(self) -> None:
+        async with self._lock:
+            self._burst_tokens = self.config.max_burst
+    
     async def cleanup(self) -> None:
         async with self._lock:
-            self.requests.clear()
-            
-    def __del__(self):
-        self.requests.clear()
+            self._requests.clear()
+            self._burst_tokens = self.config.max_burst
