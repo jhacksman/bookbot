@@ -161,22 +161,22 @@ def mock_venice_client(monkeypatch):
                     await asyncio.sleep(0.1)  # Always sleep for consistent timing
                 self._last_call = now
                 
-                # Generate response based on prompt type
+                # Generate response based on prompt type and temperature
+                temp = kwargs.get('temperature', 0.7)
                 if "hierarchical" in prompt.lower():
                     level = 0
                     if "concise" in prompt.lower():
                         level = 1
                     elif "brief" in prompt.lower():
                         level = 2
-                    response = f"Summary level {level}: This is a test summary of the content."
+                    response = f"Summary level {level} (temp={temp}): This is a test summary of the content."
                 elif "evaluate" in prompt.lower():
-                    response = '{"score": 95, "reasoning": "This book is highly relevant"}'
+                    response = f'{{"score": 95, "reasoning": "This book is highly relevant (temp={temp})"}}'
                 elif "process_epub" in prompt.lower():
-                    response = '{"status": "success", "book_id": 1, "vector_ids": ["vec123"]}'
+                    response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # Cache test - return different responses based on temperature
-                    temp = kwargs.get('temperature', 0.7)
-                    response = f"Response for temperature {temp}"
+                    response = f"Response with temperature {temp}"
                 
                 return {
                     "choices": [{

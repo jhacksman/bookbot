@@ -58,9 +58,10 @@ async def test_venice_client_rate_limiting():
         assert result1["choices"][0]["text"]
         
         # Make a second request immediately after
-        start_time = asyncio.get_event_loop().time()
+        start = asyncio.get_event_loop().time()
         result2 = await client.generate("test prompt 2")
-        elapsed = asyncio.get_event_loop().time() - start_time
+        end = asyncio.get_event_loop().time()
+        elapsed = end - start
         
         # Should have been delayed by rate limiting
         assert elapsed >= 0.09  # Verify rate limit delay (slightly less than sleep time for stability)
