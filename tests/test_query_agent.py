@@ -15,11 +15,9 @@ async def test_query_agent_initialization(async_session):
         assert agent.is_active
         assert agent.vram_limit == 16.0
         assert agent.vector_store is not None
+    finally:
         await agent.cleanup()
         assert not agent.is_active
-    finally:
-        if agent.is_active:
-            await agent.cleanup()
 
 @pytest.mark.asyncio
 async def test_query_agent_empty_query(async_session):
@@ -55,54 +53,52 @@ async def test_query_agent_with_content(async_session):
     try:
         await agent.initialize()
         assert agent.is_active
+
+        book = Book(
+            title="Test Book",
+            author="Test Author",
+            content_hash="test123",
+            vector_id="vec123"
+        )
+        async_session.add(book)
+        await async_session.flush()
         
-        async with async_session.begin():
-            book = Book(
-                title="Test Book",
-                author="Test Author",
-                content_hash="test123",
-                vector_id="vec123"
-            )
-            async_session.add(book)
-            await async_session.flush()
-            
-            summary = Summary(
-                book_id=book.id,
-                level=0,
-                content="This is a test summary about AI.",
-                vector_id="vec456"
-            )
-            async_session.add(summary)
-            await async_session.flush()
-            
-            await agent.vector_store.add_texts(
-                texts=[str(summary.content)],
-                metadata=[{"book_id": str(book.id)}],
-                ids=[str(summary.vector_id)]
-            )
-            await asyncio.sleep(0.1)
-            
-            result = await agent.process({
-                "question": "What is this book about?",
-                "context": None
-            })
-            assert result["status"] == "success"
-            assert "response" in result
-            assert "citations" in result
-            assert result["confidence"] > 0.0
-            
-            await agent.vector_store.add_texts(
-                texts=["This is a test summary about AI."],
-                metadata=[{"book_id": str(book.id)}],
-                ids=["test1"]
-            )
-            await asyncio.sleep(0.1)
-            
-            result = await agent.process({"question": "What is this book about?", "context": None})
-            assert result["status"] == "success"
-            assert "response" in result
-            assert "citations" in result
-            assert result["confidence"] > 0.0
+        summary = Summary(
+            book_id=book.id,
+            level=0,
+            content="This is a test summary about AI.",
+            vector_id="vec456"
+        )
+        async_session.add(summary)
+        await async_session.flush()
+        
+        await agent.vector_store.add_texts(
+            texts=[str(summary.content)],
+            metadata=[{"book_id": str(book.id)}],
+            ids=[str(summary.vector_id)]
+        )
+        await asyncio.sleep(0.1)
+        
+        result = await agent.process({
+            "question": "What is this book about?",
+            "context": None
+        })
+        assert result["status"] == "success"
+        assert "response" in result
+        assert "citations" in result
+        assert result["confidence"] > 0.0
+        
+        await agent.vector_store.add_texts(
+            texts=["This is a test summary about AI."],
+            metadata=[{"book_id": str(book.id)}],
+            ids=["test1"]
+        )
+        await asyncio.sleep(0.1)
+        
+        result = await agent.process({"question": "What is this book about?", "context": None})
+        assert result["status"] == "success"
+        assert "response" in result
+        assert "citations" in result
+        assert result["confidence"] > 0.0
     finally:
-        if agent.is_active:
-            await agent.cleanup()
+        await agent.cleanup()
