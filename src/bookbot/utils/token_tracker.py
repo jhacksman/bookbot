@@ -53,3 +53,4 @@ class TokenTracker:
                     'cost': (input_tokens * 0.70 + output_tokens * 2.80) / 1_000_000
                 }, f)
                 f.write('\n')
+                f.flush()  # Ensure writes are flushed to disk

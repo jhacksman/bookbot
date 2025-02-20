@@ -43,13 +43,19 @@ async def test_token_tracker_logging():
     try:
         tracker = TokenTracker(log_file=log_path)
         await tracker.add_usage(100, 50)
+        await asyncio.sleep(0.1)  # Allow time for async logging
         
-        with open(log_path, 'r') as f:
-            log_entry = json.loads(f.readline())
-            assert log_entry['input_tokens'] == 100
-            assert log_entry['output_tokens'] == 50
-            assert 'timestamp' in log_entry
-            assert 'cost' in log_entry
+        # Ensure file is written before reading
+        await tracker._lock.acquire()
+        try:
+            with open(log_path, 'r') as f:
+                log_entry = json.loads(f.readline())
+                assert log_entry['input_tokens'] == 100
+                assert log_entry['output_tokens'] == 50
+                assert 'timestamp' in log_entry
+                assert 'cost' in log_entry
+        finally:
+            tracker._lock.release()
     finally:
         if log_path.exists():
             log_path.unlink()
