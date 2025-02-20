@@ -79,6 +79,7 @@ async def test_venice_client_caching():
         # First request with default temperature
         result1 = await client.generate("test prompt", temperature=0.7)
         result1_text = result1["choices"][0]["text"]
+        assert "Response for temperature 0.7" in result1_text
         
         # Same request should use cache
         result2 = await client.generate("test prompt", temperature=0.7)
@@ -88,7 +89,7 @@ async def test_venice_client_caching():
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
         result3_text = result3["choices"][0]["text"]
-        assert result3_text != result1_text  # Different temperatures should give different responses
+        assert result3_text == "Different response for temperature 0.8"  # Different temperatures should give different responses
     finally:
         await client.cleanup()
 

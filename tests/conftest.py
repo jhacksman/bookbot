@@ -84,7 +84,7 @@ from ebooklib import epub
 from bookbot.utils.resource_manager import VRAMManager
 from bookbot.utils.venice_client import VeniceClient, VeniceConfig
 from bookbot.database.models import Base
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from typing import Dict, Any, AsyncGenerator
@@ -122,37 +122,31 @@ def event_loop():
         asyncio.set_event_loop(None)
 
 @pytest.fixture
-async def async_session() -> AsyncGenerator[AsyncSession, None]:
+async def async_session():
     """Fixture that provides an async SQLAlchemy session."""
-    engine: AsyncEngine = create_async_engine(
+    engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         echo=False,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        poolclass=NullPool  # Prevent connection pool warnings
+        poolclass=NullPool
     )
     
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    session_factory = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False
+    )
+    
+    session = session_factory()
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        
-        async_session_factory = async_sessionmaker(
-            engine,
-            expire_on_commit=False,
-            class_=AsyncSession
-        )
-        
-        session = async_session_factory()
-        try:
-            yield session
-            await session.rollback()
-        finally:
-            await session.close()
-            await engine.dispose()
-            await asyncio.sleep(0.1)  # Allow time for connections to close
-    except Exception as e:
+        await session.begin()
+        yield session
+    finally:
+        await session.rollback()
+        await session.close()
         await engine.dispose()
-        raise e
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
@@ -193,8 +187,30 @@ def mock_venice_client(monkeypatch):
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # For query agent tests, return temperature-dependent response
-                    variant = hash(f"{prompt}{temp:.6f}") % 1000  # Deterministic but different for each temp
-                    response = f'{{"answer": "Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": {0.0 if "no_relevant_content" in prompt.lower() else temp}}}'
+                    if "test prompt" in prompt.lower():
+                        # Ensure different responses for different temperatures
+                        if temp == 0.7:
+                            response = "Response for temperature 0.7"
+                        elif temp == 0.8:
+                            response = "Different response for temperature 0.8"
+                        else:
+                            response = f"Response for temperature {temp:.6f}"
+                        return {
+                            "choices": [{
+                                "text": response
+                            }]
+                        }
+                    else:
+                        variant = hash(f"{prompt}{temp:.6f}") % 1000
+                        if "test prompt" in prompt.lower():
+                            if temp == 0.7:
+                                response = "Response for temperature 0.7"
+                            elif temp == 0.8:
+                                response = "Different response for temperature 0.8"
+                            else:
+                                response = f"Response for temperature {temp:.6f}"
+                        else:
+                            response = f'Response variant {variant} (temp={temp:.6f})'
                 
                 return {
                     "choices": [{
