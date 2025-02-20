@@ -207,6 +207,14 @@ def mock_venice_client(monkeypatch):
                     except:
                         # If it's not JSON, wrap it in our standard response format
                         response = {"answer": response, "citations": [], "confidence": 0.5}
+                elif not isinstance(response, dict):
+                    response = {"answer": str(response), "citations": [], "confidence": 0.5}
+                
+                # Ensure we have all required fields
+                if not isinstance(response, dict):
+                    response = {"answer": str(response), "citations": [], "confidence": 0.5}
+                elif "answer" not in response:
+                    response = {"answer": str(response), "citations": response.get("citations", []), "confidence": response.get("confidence", 0.5)}
                 
                 return {
                     "choices": [{
