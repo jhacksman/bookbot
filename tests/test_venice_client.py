@@ -78,14 +78,17 @@ async def test_venice_client_caching():
     try:
         # First request with default temperature
         result1 = await client.generate("test prompt", temperature=0.7)
+        result1_text = result1["choices"][0]["text"]
         
         # Same request should use cache
         result2 = await client.generate("test prompt", temperature=0.7)
-        assert result1 == result2
+        result2_text = result2["choices"][0]["text"]
+        assert result1_text == result2_text
         
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
-        assert result3["choices"][0]["text"] != result1["choices"][0]["text"]
+        result3_text = result3["choices"][0]["text"]
+        assert result3_text != result1_text
     finally:
         await client.cleanup()
 

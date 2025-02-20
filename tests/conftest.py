@@ -54,12 +54,12 @@ def mock_chromadb(monkeypatch):
             self.ids = []
             
         def add(self, documents=None, metadatas=None, ids=None):
-            if documents:
-                self.texts.extend(documents)
-                self.metadatas.extend(metadatas or [None] * len(documents))
-                self.ids.extend(ids or [str(i) for i in range(len(documents))])
-                return ids or [str(i) for i in range(len(documents))]
-            return []
+            if not documents:
+                return []
+            self.texts.extend(documents)
+            self.metadatas.extend(metadatas or [None] * len(documents))
+            self.ids.extend(ids or [str(i) for i in range(len(documents))])
+            return self.ids[-len(documents):]
             
         def query(self, query_texts, n_results=1, where=None, **kwargs):
             if not self.texts:
@@ -120,7 +120,7 @@ def event_loop():
         asyncio.set_event_loop(None)
 
 @pytest.fixture
-async def async_session() -> AsyncGenerator[AsyncSession, None]:
+def async_session() -> AsyncGenerator[AsyncSession, None]:
     """Fixture that provides an async SQLAlchemy session."""
     engine: AsyncEngine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -157,8 +157,9 @@ def mock_venice_client(monkeypatch):
                 self.config = args[0]
             if not self.config:
                 self.config = VeniceConfig(api_key="test_key")
-            self._last_call = None
+            self._last_call = asyncio.get_event_loop().time()
             self._call_count = 0
+            self._rate_limit_delay = 0.1  # 100ms between calls
             
         async def generate(self, prompt: str, *args, **kwargs):
             try:
@@ -166,9 +167,10 @@ def mock_venice_client(monkeypatch):
                 self._call_count += 1
                 
                 # Simulate rate limiting
-                if self._last_call is not None:
-                    await asyncio.sleep(0.1)  # Reduced sleep time
-                self._last_call = now
+                elapsed = now - self._last_call
+                if elapsed < self._rate_limit_delay:
+                    await asyncio.sleep(self._rate_limit_delay - elapsed)
+                self._last_call = asyncio.get_event_loop().time()
                 
                 # Generate response based on prompt type and temperature
                 temp = kwargs.get('temperature', 0.7)
@@ -185,7 +187,7 @@ def mock_venice_client(monkeypatch):
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
                     # Cache test - return temperature-dependent response
-                    response = f'{{"answer": "Test response for temp {temp}", "citations": [], "confidence": 0.0}}'
+                    response = f'Test response with temperature {temp}'
                 
                 return {
                     "choices": [{

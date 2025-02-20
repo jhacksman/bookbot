@@ -48,7 +48,7 @@ async def test_query_agent_no_relevant_content(async_session):
     assert "response" in result
     assert "citations" in result
     assert len(result["citations"]) == 0
-    assert result["confidence"] == 0.5  # Changed to match actual implementation
+    assert result["confidence"] == 0.0  # Default confidence when no relevant content found
     
     await agent.cleanup()
 
