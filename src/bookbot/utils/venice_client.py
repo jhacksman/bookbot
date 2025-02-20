@@ -4,9 +4,9 @@ import json
 import asyncio
 from pathlib import Path
 from pydantic import BaseModel
-from .rate_limiter import AsyncRateLimiter
+from .rate_limiter import AsyncRateLimiter, RateLimitConfig
 from .token_tracker import TokenTracker
-from .cache import async_cache
+from .cache import AsyncCache
 
 class VeniceConfig(BaseModel):
     api_key: str
@@ -42,6 +42,9 @@ class VeniceClient:
                 retry_interval=0.1
             )
         )
+        # Configure caching with memory limits
+        self._generate_cache = AsyncCache(ttl=3600, max_memory_mb=100)  # 100MB limit
+        self._embed_cache = AsyncCache(ttl=3600, max_memory_mb=50)  # 50MB limit
     
     def __getstate__(self):
         """Custom serialization that excludes the aiohttp session"""
@@ -68,13 +71,22 @@ class VeniceClient:
             )
         return self._session
     
-    @async_cache(ttl=3600)
     async def generate(
         self, 
         prompt: str, 
         context: Optional[str] = None,
         temperature: Optional[float] = None
     ) -> Dict[str, Any]:
+        # Generate cache key
+        key = hashlib.sha256(
+            json.dumps([prompt, context, temperature], sort_keys=True).encode()
+        ).hexdigest()
+        
+        # Check cache
+        cached = await self._generate_cache.get(key)
+        if cached is not None:
+            return cached
+            
         await self._rate_limiter.wait_for_token()
         
         session = await self._get_session()
@@ -122,15 +134,25 @@ class VeniceClient:
                 len(prompt.split()),  # Approximate token count
                 len(result['choices'][0]['text'].split())
             )
+            await self._generate_cache.set(key, result)
             return result
     
-    @async_cache(ttl=3600)
     async def embed(self, input: str) -> Dict[str, Any]:
+        # Generate cache key
+        key = hashlib.sha256(input.encode()).hexdigest()
+        
+        # Check cache
+        cached = await self._embed_cache.get(key)
+        if cached is not None:
+            return cached
+            
         await self._rate_limiter.wait_for_token()
         
         # For testing purposes, return mock response
         if not self.config.api_key or self.config.api_key == "test_key":
-            return {"data": [{"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}]}
+            result = {"data": [{"embedding": [0.1, 0.2, 0.3, 0.4, 0.5]}]}
+            await self._embed_cache.set(key, result)
+            return result
             
         session = await self._get_session()
         payload = {
@@ -157,8 +179,11 @@ class VeniceClient:
                 len(input.split()),  # Approximate token count
                 0  # Embeddings don't have output tokens
             )
+            await self._embed_cache.set(key, result)
             return result
     
     async def cleanup(self):
         if self._session and not self._session.closed:
             await self._session.close()
+        await self._generate_cache.clear()
+        await self._embed_cache.clear()
