@@ -63,7 +63,7 @@ async def test_venice_client_rate_limiting():
         elapsed = asyncio.get_event_loop().time() - start_time
         
         # Should have been delayed by rate limiting
-        assert elapsed >= 0.05  # Verify rate limit delay (reduced threshold for CI stability)
+        assert elapsed >= 0.09  # Verify rate limit delay (slightly less than sleep time for stability)
         assert result2["choices"][0]["text"]
     finally:
         await client.cleanup()
@@ -76,10 +76,10 @@ async def test_venice_client_caching():
     
     try:
         # First request with default temperature
-        result1 = await client.generate("test prompt")
+        result1 = await client.generate("test prompt", temperature=0.7)
         
         # Same request should use cache
-        result2 = await client.generate("test prompt")
+        result2 = await client.generate("test prompt", temperature=0.7)
         assert result1 == result2
         
         # Different temperature should bypass cache

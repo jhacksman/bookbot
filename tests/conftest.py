@@ -158,9 +158,7 @@ def mock_venice_client(monkeypatch):
                 
                 # Simulate rate limiting
                 if self._last_call is not None:
-                    elapsed = now - self._last_call
-                    if elapsed < 0.1:  # Force minimum delay between calls
-                        await asyncio.sleep(0.1)  # Always sleep for consistent timing
+                    await asyncio.sleep(0.1)  # Always sleep for consistent timing
                 self._last_call = now
                 
                 # Generate response based on prompt type
