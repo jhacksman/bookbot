@@ -31,6 +31,5 @@ jobs:
           TELEMETRY_DISABLED: True
           DISABLE_ANALYTICS: True
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: True
-          PYTEST_ADDOPTS: "--no-cov"
         run: |
-          poetry run pytest tests/ -v --capture=no --log-cli-level=DEBUG -vv --timeout=300 --asyncio-mode=strict
+          poetry run pytest tests/
