@@ -76,7 +76,9 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         selection_result = await selection_agent.process({"books": [test_book]})
                         assert selection_result["status"] == "success"
                         assert isinstance(selection_result.get("selected_books", []), list)
-                        assert len(selection_result.get("selected_books", [])) > 0
+                        selected_books = selection_result.get("selected_books", [])
+                        assert len(selected_books) > 0
+                        assert test_book in selected_books
                         
                         # Test summarization
                         summarization_result = await summarization_agent.process({

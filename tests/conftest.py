@@ -198,7 +198,10 @@ def mock_venice_client(monkeypatch):
                             response = {"answer": f"Response for temperature {temp:.6f}", "citations": [], "confidence": 0.5}
                     else:
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
-                        response = {"answer": f"Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": 0.5}
+                        if "book selection" in prompt.lower():
+                            response = {"score": 95, "reasoning": f"This book is highly relevant (temp={temp:.6f})"}
+                        else:
+                            response = {"answer": f"Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": 0.5}
                 
                 # Ensure response is a dict with consistent format
                 if isinstance(response, str):
