@@ -142,12 +142,17 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
             class_=AsyncSession
         )
         
-        async with async_session_factory() as session:
+        session = async_session_factory()
+        try:
             yield session
             await session.rollback()
-    finally:
+        finally:
+            await session.close()
+            await engine.dispose()
+            await asyncio.sleep(0.1)  # Allow time for connections to close
+    except Exception as e:
         await engine.dispose()
-        await asyncio.sleep(0.1)  # Allow time for connections to close
+        raise e
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
