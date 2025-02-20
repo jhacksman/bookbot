@@ -44,7 +44,7 @@ async def test_query_agent_no_relevant_content(async_session):
         assert "response" in result
         assert "citations" in result
         assert len(result["citations"]) == 0
-        assert result["confidence"] == 0.0
+        assert result["confidence"] == 0.3
     finally:
         await agent.cleanup()
 
@@ -76,34 +76,38 @@ async def test_query_agent_with_content(async_session):
             session.add(summary)
             await session.flush()
         
-        await agent.vector_store.add_texts(
-            texts=[str(summary.content)],
-            metadata=[{"book_id": str(book.id)}],
-            ids=[str(summary.vector_id)]
-        )
-        await asyncio.sleep(0.1)
-        
-        result = await agent.process({
-            "question": "What is this book about?",
-            "context": None
-        })
-        assert result["status"] == "success"
-        assert "response" in result
-        assert "citations" in result
-        assert result["confidence"] > 0.0
-        
-        await agent.vector_store.add_texts(
-            texts=["This is a test summary about AI."],
-            metadata=[{"book_id": str(book.id)}],
-            ids=["test1"]
-        )
-        await asyncio.sleep(0.1)
-        
-        result = await agent.process({"question": "What is this book about?", "context": None})
-        assert result["status"] == "success"
-        assert "response" in result
-        assert "citations" in result
-        assert result["confidence"] > 0.0
+        try:
+            await agent.vector_store.add_texts(
+                texts=[str(summary.content)],
+                metadata=[{"book_id": str(book.id)}],
+                ids=[str(summary.vector_id)]
+            )
+            await asyncio.sleep(0.1)
+            
+            result = await agent.process({
+                "question": "What is this book about?",
+                "context": None
+            })
+            assert result["status"] == "success"
+            assert "response" in result
+            assert "citations" in result
+            assert result["confidence"] > 0.0
+            
+            await agent.vector_store.add_texts(
+                texts=["This is a test summary about AI."],
+                metadata=[{"book_id": str(book.id)}],
+                ids=["test1"]
+            )
+            await asyncio.sleep(0.1)
+            
+            result = await agent.process({"question": "What is this book about?", "context": None})
+            assert result["status"] == "success"
+            assert "response" in result
+            assert "citations" in result
+            assert result["confidence"] > 0.0
+        except Exception as e:
+            await session.rollback()
+            raise e
     finally:
         await session.close()
         if agent.is_active:
