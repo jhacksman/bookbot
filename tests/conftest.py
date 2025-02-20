@@ -197,7 +197,7 @@ def mock_venice_client(monkeypatch):
                             response = {"answer": f"Response for temperature {temp:.6f}", "citations": [], "confidence": 0.5}
                     else:
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
-                        response = {"answer": f'Response variant {variant} (temp={temp:.6f})', "citations": [], "confidence": 0.5}
+                        response = {"answer": f"Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": 0.5}
                 
                 return {
                     "choices": [{

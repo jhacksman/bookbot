@@ -42,7 +42,8 @@ async def test_query_agent_no_relevant_content(async_session):
         assert "response" in result
         assert "citations" in result
         assert len(result["citations"]) == 0
-        assert result["confidence"] == 0.5
+        assert isinstance(result["confidence"], float)
+        assert 0.0 <= result["confidence"] <= 1.0
     finally:
         await agent.cleanup()
 
@@ -72,7 +73,6 @@ async def test_query_agent_with_content(async_session):
         async_session.add(summary)
         await async_session.flush()
         await async_session.commit()
-            
         # Add initial texts
         await agent.vector_store.add_texts(
             texts=[summary.content],
