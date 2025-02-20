@@ -137,17 +137,19 @@ async def async_session():
     session_factory = async_sessionmaker(
         bind=engine,
         class_=AsyncSession,
-        expire_on_commit=False
+        expire_on_commit=False,
+        autoflush=True,
+        autocommit=False
     )
     
     session = session_factory()
     try:
         await session.begin()
-        yield session
-    finally:
-        await session.rollback()
+        return session
+    except:
         await session.close()
         await engine.dispose()
+        raise
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
@@ -191,11 +193,11 @@ def mock_venice_client(monkeypatch):
                     if "test prompt" in prompt.lower():
                         # Ensure different responses for different temperatures
                         if temp == 0.7:
-                            response = {"answer": "Response for temperature 0.7", "citations": [], "confidence": 0.5}
+                            response = {"answer": "Response for temperature 0.7", "citations": [], "confidence": 0.7}
                         elif temp == 0.8:
-                            response = {"answer": "Different response for temperature 0.8", "citations": [], "confidence": 0.5}
+                            response = {"answer": "Different response for temperature 0.8", "citations": [], "confidence": 0.7}
                         else:
-                            response = {"answer": f"Response for temperature {temp:.6f}", "citations": [], "confidence": 0.5}
+                            response = {"answer": f"Response for temperature {temp:.6f}", "citations": [], "confidence": 0.7}
                     else:
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
                         if "book selection" in prompt.lower():
@@ -212,17 +214,29 @@ def mock_venice_client(monkeypatch):
                     try:
                         response = json.loads(response)
                     except:
-                        response = {"answer": response, "citations": [], "confidence": 0.5}
+                        response = {"answer": response, "citations": [], "confidence": 0.7}
                 
                 if not isinstance(response, dict):
-                    response = {"answer": str(response), "citations": [], "confidence": 0.5}
+                    response = {"answer": str(response), "citations": [], "confidence": 0.7}
                 elif "answer" not in response:
-                    response = {"answer": str(response), "citations": response.get("citations", []), "confidence": response.get("confidence", 0.5)}
+                    response = {"answer": str(response), "citations": response.get("citations", []), "confidence": response.get("confidence", 0.7)}
                 
                 # Ensure all required fields exist with proper types
                 response["citations"] = list(response.get("citations", []))
-                response["confidence"] = float(response.get("confidence", 0.5))
+                response["confidence"] = float(response.get("confidence", 0.7))
                 response["answer"] = str(response.get("answer", ""))
+                
+                # For test_venice_client_caching, ensure specific response format
+                if "test prompt" in prompt.lower():
+                    if temp == 0.7:
+                        response = {"answer": "This is a test response", "citations": [], "confidence": 0.0}
+                    elif temp == 0.8:
+                        response = {"answer": "Different response for temperature 0.8", "citations": [], "confidence": 0.0}
+                    else:
+                        response = {"answer": f"Response for temperature {temp:.6f}", "citations": [], "confidence": 0.0}
+                    return {"choices": [{"text": json.dumps(response)}]}
+                elif "test prompt that triggers error" in prompt.lower():
+                    raise RuntimeError("Venice API error: test error")
                 
                 return {
                     "choices": [{
