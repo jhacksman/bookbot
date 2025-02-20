@@ -199,7 +199,11 @@ def mock_venice_client(monkeypatch):
                     else:
                         variant = hash(f"{prompt}{temp:.6f}") % 1000
                         if "book selection" in prompt.lower():
-                            response = {"score": 95, "reasoning": f"This book is highly relevant (temp={temp:.6f})"}
+                            response = {
+                                "status": "success",
+                                "selected_books": [{"title": "Test Book", "author": "Test Author", "content": "Test content for verification"}],
+                                "evaluations": [{"score": 95, "reasoning": f"This book is highly relevant (temp={temp:.6f})"}]
+                            }
                         else:
                             response = {"answer": f"Response variant {variant} (temp={temp:.6f})", "citations": [], "confidence": 0.5}
                 

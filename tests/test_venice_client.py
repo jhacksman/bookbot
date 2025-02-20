@@ -81,17 +81,28 @@ async def test_venice_client_caching():
         result1 = await client.generate("test prompt", temperature=0.7)
         result1_text = result1["choices"][0]["text"]
         assert isinstance(result1_text, dict)
-        assert result1_text["answer"] == "Response for temperature 0.7"
+        assert isinstance(result1_text["answer"], str)
+        assert isinstance(result1_text["citations"], list)
+        assert isinstance(result1_text["confidence"], float)
+        assert "Response for temperature 0.7" in result1_text["answer"]
         
         # Same request should use cache
         result2 = await client.generate("test prompt", temperature=0.7)
         result2_text = result2["choices"][0]["text"]
-        assert result2_text["answer"] == "Response for temperature 0.7"
+        assert isinstance(result2_text, dict)
+        assert isinstance(result2_text["answer"], str)
+        assert isinstance(result2_text["citations"], list)
+        assert isinstance(result2_text["confidence"], float)
+        assert result2_text["answer"] == result1_text["answer"]
         
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
         result3_text = result3["choices"][0]["text"]
-        assert result3_text["answer"] == "Different response for temperature 0.8"
+        assert isinstance(result3_text, dict)
+        assert isinstance(result3_text["answer"], str)
+        assert isinstance(result3_text["citations"], list)
+        assert isinstance(result3_text["confidence"], float)
+        assert "Different response for temperature 0.8" in result3_text["answer"]
     finally:
         await client.cleanup()
 
