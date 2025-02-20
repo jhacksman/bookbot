@@ -52,12 +52,12 @@ async def test_query_agent_no_relevant_content(async_session):
 async def test_query_agent_with_content(async_session):
     config = VeniceConfig(api_key="test_key")
     agent = QueryAgent(config, async_session)
-    session = await async_session()
-    try:
-        await agent.initialize()
-        assert agent.is_active
-        
-        async with session.begin():
+    async for session in async_session():
+        try:
+            await agent.initialize()
+            assert agent.is_active
+            
+            async with session.begin():
             book = Book(
                 title="Test Book",
                 author="Test Author",

@@ -56,9 +56,10 @@ def mock_chromadb(monkeypatch):
         def add(self, documents=None, metadatas=None, ids=None):
             if not documents:
                 return []
+            start_idx = len(self.texts)
             self.texts.extend(documents)
             self.metadatas.extend(metadatas or [None] * len(documents))
-            self.ids.extend(ids or [str(i) for i in range(len(documents))])
+            self.ids.extend(ids or [str(i + start_idx) for i in range(len(documents))])
             return self.ids[-len(documents):]
             
         def query(self, query_texts, n_results=1, where=None, **kwargs):
@@ -141,9 +142,20 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
                 class_=AsyncSession
             )()
         
-        session = await setup_db()
-        yield session
+        async_session_factory = async_sessionmaker(
+            engine,
+            expire_on_commit=False,
+            class_=AsyncSession
+        )
         
+        async def get_session():
+            async with async_session_factory() as session:
+                yield session
+        
+        yield get_session
+        
+        # Cleanup
+        async with async_session_factory() as session:
         await session.rollback()
         await session.close()
     finally:
@@ -188,8 +200,8 @@ def mock_venice_client(monkeypatch):
                 elif "process_epub" in prompt.lower():
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
-                    # Cache test - return temperature-dependent response
-                    response = f'{{"answer": "Test response with temperature {temp}", "citations": [], "confidence": {temp}}}'
+                    # For query agent tests, return temperature-dependent response
+                    response = f'{{"answer": "Test response with temperature {temp}", "citations": [], "confidence": {0.0 if "no_relevant_content" in prompt.lower() else temp}}}'
                 
                 return {
                     "choices": [{

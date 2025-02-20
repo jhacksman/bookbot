@@ -64,7 +64,7 @@ async def test_venice_client_rate_limiting():
         elapsed = end - start
         
         # Should have been delayed by rate limiting
-        assert elapsed >= 0.0  # Mock client doesn't actually rate limit
+        assert elapsed >= 0.0  # We don't test actual rate limiting in mocks
         assert result2["choices"][0]["text"]
     finally:
         await client.cleanup()
@@ -88,7 +88,7 @@ async def test_venice_client_caching():
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
         result3_text = result3["choices"][0]["text"]
-        assert isinstance(result3_text, str)  # Mock client doesn't actually cache
+        assert result3_text != result1_text  # Different temperatures should give different responses
     finally:
         await client.cleanup()
 
