@@ -112,9 +112,11 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                             "question": "What is deep learning and how does it relate to neural networks?"
                         })
                         assert query_result["status"] == "success"
-                        assert isinstance(query_result.get("response"), dict)
-                        assert isinstance(query_result.get("response", {}).get("citations", []), list)
-                        assert isinstance(query_result.get("response", {}).get("confidence", 0.0), float)
+                        assert query_result["status"] == "success"
+                        assert isinstance(query_result["response"], str)
+                        assert isinstance(query_result["citations"], list)
+                        assert isinstance(query_result["confidence"], float)
+                        assert 0.0 <= query_result["confidence"] <= 1.0
     finally:
         # Cleanup agents in reverse order
         cleanup_tasks = []
