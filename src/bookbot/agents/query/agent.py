@@ -73,11 +73,16 @@ Provide your response in JSON format with these fields:
             
             result = await self.venice.generate(prompt, temperature=0.3)
             try:
-                response = json.loads(result["choices"][0]["text"])
+                # Check if response is already a dict
+                text = result["choices"][0]["text"]
+                if isinstance(text, dict):
+                    response = text
+                else:
+                    response = json.loads(text)
                 # Ensure confidence is a float between 0 and 1
                 response["confidence"] = max(0.0, min(1.0, float(response.get("confidence", 0.7))))
                 return response
-            except (json.JSONDecodeError, ValueError, KeyError):
+            except (json.JSONDecodeError, ValueError, KeyError, TypeError):
                 return {
                     "answer": result["choices"][0]["text"],
                     "citations": [],
