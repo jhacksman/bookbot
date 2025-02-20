@@ -34,14 +34,14 @@ class TokenTracker:
         return (self.input_tokens * 0.70 + self.output_tokens * 2.80) / 1_000_000
     
     async def get_cost(self) -> float:
-        if self._closed:
-            raise RuntimeError("TokenTracker is closed")
+        if self._error:
+            raise RuntimeError(f"TokenTracker encountered an error: {self._error}")
         async with self._lock:
             return self._calculate_cost()
     
     async def get_usage(self) -> TokenUsage:
-        if self._closed:
-            raise RuntimeError("TokenTracker is closed")
+        if self._error:
+            raise RuntimeError(f"TokenTracker encountered an error: {self._error}")
         async with self._lock:
             cost = self._calculate_cost()
             return TokenUsage(
