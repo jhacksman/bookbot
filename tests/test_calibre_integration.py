@@ -16,25 +16,25 @@ async def mock_calibre_db(tmp_path):
         
         # Add test books
         await calibre.add_book({
-        "title": "Test Book 1",
-        "author": "Test Author 1",
-        "format": "EPUB",
-        "identifiers": {"isbn": "1234567890"},
-        "tags": ["test", "fiction"],
-        "series": "Test Series",
-        "series_index": 1,
-        "last_modified": datetime.now()
-    })
-    
-    await calibre.add_book({
-        "title": "Test Book 2",
-        "author": "Test Author 2",
-        "format": "PDF",
-        "identifiers": {"doi": "10.1234/test"},
-        "tags": ["test", "non-fiction"],
-        "last_modified": datetime.now()
-    })
-    
+            "title": "Test Book 1",
+            "author": "Test Author 1",
+            "format": "EPUB",
+            "identifiers": {"isbn": "1234567890"},
+            "tags": ["test", "fiction"],
+            "series": "Test Series",
+            "series_index": 1,
+            "last_modified": datetime.now()
+        })
+        
+        await calibre.add_book({
+            "title": "Test Book 2",
+            "author": "Test Author 2",
+            "format": "PDF",
+            "identifiers": {"doi": "10.1234/test"},
+            "tags": ["test", "non-fiction"],
+            "last_modified": datetime.now()
+        })
+        
         return str(db_path)
     finally:
         await calibre.cleanup()

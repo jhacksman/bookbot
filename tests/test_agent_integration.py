@@ -28,6 +28,7 @@ def vram_manager():
     return VRAMManager(total_vram=64.0)
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(300)  # Increased timeout for complex integration test
 async def test_full_pipeline(venice_config, vram_manager, db_session):
     """Test the complete pipeline from book selection to querying."""
     agents = []
