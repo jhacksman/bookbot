@@ -61,25 +61,24 @@ async def test_query_agent_with_content(async_session):
         assert agent.is_active
         
         # Add test book and summary to the database
-        async with async_session() as session:
-            async with session.begin():
-                book = Book(
-                    title="Test Book",
-                    author="Test Author",
-                    content_hash="test123",
-                    vector_id="vec123"
-                )
-                session.add(book)
-                await session.flush()
-                
-                summary = Summary(
-                    book_id=book.id,
-                    level=0,
-                    content="This is a test summary about AI.",
-                    vector_id="vec456"
-                )
-                session.add(summary)
-                await session.flush()
+        async with async_session.begin():
+            book = Book(
+                title="Test Book",
+                author="Test Author",
+                content_hash="test123",
+                vector_id="vec123"
+            )
+            async_session.add(book)
+            await async_session.flush()
+            
+            summary = Summary(
+                book_id=book.id,
+                level=0,
+                content="This is a test summary about AI.",
+                vector_id="vec456"
+            )
+            async_session.add(summary)
+            await async_session.flush()
         
         # Add vector to store for testing
         await agent.vector_store.add_texts(

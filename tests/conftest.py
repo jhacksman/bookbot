@@ -58,7 +58,8 @@ def mock_chromadb(monkeypatch):
                 self.texts.extend(documents)
                 self.metadatas.extend(metadatas or [None] * len(documents))
                 self.ids.extend(ids or [str(i) for i in range(len(documents))])
-            return self.ids[-len(documents):] if documents else []
+                return self.ids[-len(documents):]
+            return []
             
         def query(self, query_texts, n_results=1, where=None, **kwargs):
             if not self.texts:
@@ -70,7 +71,7 @@ def mock_chromadb(monkeypatch):
                 }
             return {
                 "ids": [self.ids[:n_results]],
-                "distances": [[0.5] * n_results],
+                "distances": [[0.0] * min(n_results, len(self.texts))],
                 "metadatas": [self.metadatas[:n_results]],
                 "documents": [self.texts[:n_results]]
             }
@@ -133,16 +134,16 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         
-        session_maker = async_sessionmaker(
+        session = async_sessionmaker(
             engine,
             expire_on_commit=False,
             class_=AsyncSession
-        )
+        )()
         
-        async with session_maker() as session:
-            yield session
-            await session.rollback()
-            await session.close()
+        yield session
+        
+        await session.rollback()
+        await session.close()
     finally:
         await engine.dispose()
         await asyncio.sleep(0.1)  # Allow time for connections to close
@@ -166,7 +167,7 @@ def mock_venice_client(monkeypatch):
                 
                 # Simulate rate limiting
                 if self._last_call is not None:
-                    await asyncio.sleep(0.1)  # Always sleep for consistent timing
+                    await asyncio.sleep(0.1)  # Reduced sleep time
                 self._last_call = now
                 
                 # Generate response based on prompt type and temperature
@@ -183,8 +184,8 @@ def mock_venice_client(monkeypatch):
                 elif "process_epub" in prompt.lower():
                     response = f'{{"status": "success", "book_id": 1, "vector_ids": ["vec123"], "temp": {temp}}}'
                 else:
-                    # Cache test - return different responses based on temperature
-                    response = f"Response with temperature {temp}"
+                    # Cache test - return consistent response for same temperature
+                    response = f'{{"answer": "Test response {temp}", "citations": [], "confidence": 0.0}}'
                 
                 return {
                     "choices": [{
