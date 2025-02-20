@@ -75,11 +75,14 @@ async def test_query_agent_with_content(async_session):
         await async_session.commit()
         # Add initial texts
         # Add texts to vector store
-        await agent.vector_store.add_texts(
-            texts=[summary.content],
-            metadata=[{"book_id": str(summary.book_id), "type": "summary", "level": summary.level}],
-            ids=[summary.vector_id]
-        )
+        texts = [summary.content]
+        metadata = [{"book_id": str(summary.book_id), "type": "summary", "level": summary.level}]
+        ids = [summary.vector_id]
+        
+        # Ensure vector store is initialized before adding texts
+        if not hasattr(agent.vector_store, '_collection'):
+            await agent.vector_store.initialize()
+        await agent.vector_store.add_texts(texts=texts, metadata=metadata, ids=ids)
         
         result = await agent.process({
             "question": "What is this book about?",

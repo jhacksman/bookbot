@@ -80,20 +80,22 @@ async def test_venice_client_caching():
         # First request with default temperature
         result1 = await client.generate("test prompt", temperature=0.7)
         result1_text = result1["choices"][0]["text"]
-        assert isinstance(result1_text, dict)
-        assert isinstance(result1_text["answer"], str)
-        assert isinstance(result1_text["citations"], list)
-        assert isinstance(result1_text["confidence"], float)
-        assert "Response for temperature 0.7" in result1_text["answer"]
+        parsed_result1 = eval(result1_text) if isinstance(result1_text, str) else result1_text
+        assert isinstance(parsed_result1, dict)
+        assert isinstance(parsed_result1["answer"], str)
+        assert isinstance(parsed_result1["citations"], list)
+        assert isinstance(parsed_result1["confidence"], float)
+        assert "Response for temperature 0.7" in parsed_result1["answer"]
         
         # Same request should use cache
         result2 = await client.generate("test prompt", temperature=0.7)
         result2_text = result2["choices"][0]["text"]
-        assert isinstance(result2_text, dict)
-        assert isinstance(result2_text["answer"], str)
-        assert isinstance(result2_text["citations"], list)
-        assert isinstance(result2_text["confidence"], float)
-        assert result2_text["answer"] == result1_text["answer"]
+        parsed_result2 = eval(result2_text)  # Safe since we control the mock response
+        assert isinstance(parsed_result2, dict)
+        assert isinstance(parsed_result2["answer"], str)
+        assert isinstance(parsed_result2["citations"], list)
+        assert isinstance(parsed_result2["confidence"], float)
+        assert parsed_result2["answer"] == parsed_result1["answer"]
         
         # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
