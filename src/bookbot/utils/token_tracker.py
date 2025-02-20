@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, TextIO
 import json
 from pathlib import Path
 from time import time
@@ -13,7 +13,7 @@ class TokenUsage:
     cost: float
 
 class TokenTracker:
-    def __init__(self, log_file: Optional[Path] = None, log_buffer: Optional[StringIO] = None):
+    def __init__(self, log_file: Optional[Path] = None, log_buffer: Optional[TextIO] = None):
         self.input_tokens = 0
         self.output_tokens = 0
         self.log_file = log_file
