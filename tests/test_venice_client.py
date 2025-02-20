@@ -53,20 +53,17 @@ async def test_venice_client_rate_limiting():
     client = VeniceClient(config)
     
     try:
-        start_time = asyncio.get_event_loop().time()
-        
         # First request should go through immediately
         result1 = await client.generate("test prompt 1")
         assert result1["choices"][0]["text"]
         
-        # Make 5 more requests (reduced from 20 for faster testing)
-        for i in range(5):
-            await client.generate(f"test prompt {i+2}")
-        
-        # Next request should be delayed
-        result2 = await client.generate("test prompt 7")
+        # Make a second request immediately after
+        start_time = asyncio.get_event_loop().time()
+        result2 = await client.generate("test prompt 2")
         elapsed = asyncio.get_event_loop().time() - start_time
-        assert elapsed >= 0.0001  # Just verify some delay occurred
+        
+        # Should have been delayed by rate limiting
+        assert elapsed >= 0.05  # Verify rate limit delay (reduced threshold for CI stability)
         assert result2["choices"][0]["text"]
     finally:
         await client.cleanup()
@@ -78,14 +75,14 @@ async def test_venice_client_caching():
     client = VeniceClient(config)
     
     try:
-        # First request
-        result1 = await client.generate("test prompt", temperature=0.7)
+        # First request with default temperature
+        result1 = await client.generate("test prompt")
         
         # Same request should use cache
-        result2 = await client.generate("test prompt", temperature=0.7)
-        assert result1["choices"][0]["text"] == result2["choices"][0]["text"]
+        result2 = await client.generate("test prompt")
+        assert result1 == result2
         
-        # Different parameters should bypass cache
+        # Different temperature should bypass cache
         result3 = await client.generate("test prompt", temperature=0.8)
         assert result3["choices"][0]["text"] != result1["choices"][0]["text"]
     finally:

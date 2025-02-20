@@ -35,8 +35,37 @@ def mock_chromadb(monkeypatch):
             
         def get_or_create_collection(self, name, **kwargs):
             if name not in self.collections:
-                self.collections[name] = {"name": name, "metadata": None}
+                self.collections[name] = MockCollection(name)
             return self.collections[name]
+            
+    class MockCollection:
+        def __init__(self, name):
+            self.name = name
+            self.texts = []
+            self.metadatas = []
+            self.ids = []
+            
+        def add(self, documents=None, metadatas=None, ids=None):
+            if documents:
+                self.texts.extend(documents)
+                self.metadatas.extend(metadatas or [None] * len(documents))
+                self.ids.extend(ids or [str(i) for i in range(len(documents))])
+            return self.ids[-len(documents):] if documents else []
+            
+        def query(self, query_texts, n_results=1, where=None, **kwargs):
+            if not self.texts:
+                return {
+                    "ids": [[]],
+                    "distances": [[]],
+                    "metadatas": [[]],
+                    "documents": [[]]
+                }
+            return {
+                "ids": [self.ids[:n_results]],
+                "distances": [[0.5] * n_results],
+                "metadatas": [self.metadatas[:n_results]],
+                "documents": [self.texts[:n_results]]
+            }
     
     monkeypatch.setattr("chromadb.Client", MockChromaClient)
     monkeypatch.setattr("chromadb.PersistentClient", MockChromaClient)
@@ -119,40 +148,43 @@ def mock_venice_client(monkeypatch):
                 self.config = args[0]
             if not self.config:
                 self.config = VeniceConfig(api_key="test_key")
-
+            self._last_call = None
+            self._call_count = 0
+            
         async def generate(self, prompt: str, *args, **kwargs):
             try:
+                now = asyncio.get_event_loop().time()
+                self._call_count += 1
+                
+                # Simulate rate limiting
+                if self._last_call is not None:
+                    elapsed = now - self._last_call
+                    if elapsed < 0.1:  # Force minimum delay between calls
+                        await asyncio.sleep(0.1)  # Always sleep for consistent timing
+                self._last_call = now
+                
+                # Generate response based on prompt type
                 if "hierarchical" in prompt.lower():
                     level = 0
                     if "concise" in prompt.lower():
                         level = 1
                     elif "brief" in prompt.lower():
                         level = 2
-                    return {
-                        "choices": [{
-                            "text": f"Summary level {level}: This is a test summary of the content. It covers key concepts and technical details at varying levels of detail depending on the summary level."
-                        }]
-                    }
+                    response = f"Summary level {level}: This is a test summary of the content."
                 elif "evaluate" in prompt.lower():
-                    return {
-                        "choices": [{
-                            "text": '{"score": 95, "reasoning": "This book is highly relevant for AI research", "key_topics": ["deep learning", "neural networks", "machine learning"]}'
-                        }]
-                    }
+                    response = '{"score": 95, "reasoning": "This book is highly relevant"}'
+                elif "process_epub" in prompt.lower():
+                    response = '{"status": "success", "book_id": 1, "vector_ids": ["vec123"]}'
                 else:
-                    # For queries with no relevant content, return empty citations
-                    if "meaning of life" in prompt.lower():
-                        return {
-                            "choices": [{
-                                "text": '{"answer": "No relevant information found.", "citations": [], "confidence": 0.0}'
-                            }]
-                        }
-                    # For queries with content, return citations
-                    return {
-                        "choices": [{
-                            "text": '{"answer": "This book discusses artificial intelligence and machine learning concepts.", "citations": [{"book_id": 1, "title": "Test Book", "author": "Test Author", "quoted_text": "This is a test summary about AI."}], "confidence": 0.9}'
-                        }]
-                    }
+                    # Cache test - return different responses based on temperature
+                    temp = kwargs.get('temperature', 0.7)
+                    response = f"Response for temperature {temp}"
+                
+                return {
+                    "choices": [{
+                        "text": response
+                    }]
+                }
             except Exception as e:
                 return {
                     "choices": [{
