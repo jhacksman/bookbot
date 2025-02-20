@@ -75,12 +75,12 @@ async def test_query_agent_with_content(async_session):
         await async_session.commit()
         # Add initial texts
         # Add texts to vector store
-        await agent.vector_store.add_texts(
-            texts=[summary.content],
-            metadata=[{"book_id": str(summary.book_id)}],
+        # Add texts to vector store using the collection's add method
+        agent.vector_store.collection.add(
+            documents=[summary.content],
+            metadatas=[{"book_id": str(summary.book_id)}],
             ids=[summary.vector_id]
         )
-        await asyncio.sleep(0.1)
         
         result = await agent.process({
             "question": "What is this book about?",

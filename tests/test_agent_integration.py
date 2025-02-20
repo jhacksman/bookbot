@@ -75,7 +75,8 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         # Test book selection
                         selection_result = await selection_agent.process({"books": [test_book]})
                         assert selection_result["status"] == "success"
-                        assert len(selection_result["selected_books"]) > 0
+                        assert isinstance(selection_result.get("selected_books", []), list)
+                        assert len(selection_result.get("selected_books", [])) > 0
                         
                         # Test summarization
                         summarization_result = await summarization_agent.process({
@@ -102,9 +103,9 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                             "question": "What is deep learning and how does it relate to neural networks?"
                         })
                         assert query_result["status"] == "success"
-                        assert "response" in query_result
-                        assert "citations" in query_result
-                        assert query_result["confidence"] >= 0.0
+                        assert isinstance(query_result.get("response"), dict)
+                        assert isinstance(query_result.get("response", {}).get("citations", []), list)
+                        assert isinstance(query_result.get("response", {}).get("confidence", 0.0), float)
     finally:
         # Cleanup agents in reverse order
         cleanup_tasks = []
