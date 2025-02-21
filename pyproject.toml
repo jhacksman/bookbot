@@ -31,8 +31,9 @@ watchdog = "^3.0.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --tb=short --durations=10 --asyncio-mode=auto"
+addopts = "-v --tb=short --durations=10"
 log_level = "DEBUG"
+asyncio_mode = "auto"
 markers = [
     "asyncio: mark test as async/await test",
     "timeout: mark test with timeout value",
@@ -45,8 +46,6 @@ filterwarnings = [
     "ignore::RuntimeWarning:asyncio.*:",
     "ignore::ResourceWarning:asyncio.*:"
 ]
-
-
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
