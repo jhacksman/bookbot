@@ -1,13 +1,15 @@
 from typing import Any, Dict, List
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..base import Agent
 from ...utils.venice_client import VeniceClient, VeniceConfig
 from ...utils.vector_store import VectorStore
 
 class SelectionAgent(Agent):
-    def __init__(self, venice_config: VeniceConfig, vram_limit: float = 16.0):
+    def __init__(self, venice_config: VeniceConfig, session: AsyncSession, vram_limit: float = 16.0):
         super().__init__(vram_limit)
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("selection_agent")
+        self.session = session
         
     async def initialize(self) -> None:
         self.is_active = True

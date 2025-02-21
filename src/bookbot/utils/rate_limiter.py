@@ -58,7 +58,7 @@ class AsyncRateLimiter:
             self._requests = [t for t in self._requests if now - t < self.config.window_seconds]
             return {
                 "current_requests": len(self._requests),
-                "burst_tokens": self._burst_tokens,
+                "burst_tokens": 0 if len(self._requests) >= self.config.requests_per_window else self._burst_tokens,
                 "window_limit": self.config.requests_per_window
             }
     

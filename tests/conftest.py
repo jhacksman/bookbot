@@ -122,34 +122,38 @@ def event_loop():
         loop.close()
         asyncio.set_event_loop(None)
 
-@pytest.fixture
+import pytest_asyncio
+
+from sqlalchemy import text
+
+@pytest_asyncio.fixture
 async def async_session():
     """Fixture that provides an async SQLAlchemy session."""
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
-        echo=False,
-        poolclass=NullPool
+        echo=True,
+        future=True,
+        connect_args={"check_same_thread": False}
     )
-    
+
+    # Create all tables in a single transaction
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
-    session_factory = async_sessionmaker(
+        await conn.execute(text("PRAGMA foreign_keys=ON"))
+
+    # Create session factory
+    async_session = async_sessionmaker(
         bind=engine,
         class_=AsyncSession,
         expire_on_commit=False,
-        autoflush=True,
-        autocommit=False
+        autoflush=False
     )
-    
-    session = session_factory()
-    try:
-        await session.begin()
-        return session
-    except:
+
+    async with async_session() as session:
+        yield session
+        await session.rollback()  # Ensure any pending transactions are rolled back
         await session.close()
-        await engine.dispose()
-        raise
+    await engine.dispose()
 
 @pytest.fixture(autouse=True)
 def mock_venice_client(monkeypatch):
@@ -287,6 +291,17 @@ def test_book_data() -> Dict[str, Any]:
             "language": "en"
         }
     }
+
+@pytest_asyncio.fixture
+async def mock_calibre_db(tmp_path):
+    """Fixture that provides a mock Calibre database for testing."""
+    from datetime import datetime
+    
+    db_path = str(tmp_path / "metadata.db")
+    with open(db_path, 'w') as f:
+        f.write('')  # Create empty file
+        
+    return db_path
 
 @pytest.fixture
 def test_summary_data() -> Dict[str, Any]:

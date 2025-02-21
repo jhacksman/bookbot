@@ -1,22 +1,36 @@
 import pytest
 import asyncio
 from ebooklib import epub
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from bookbot.agents.librarian.agent import LibrarianAgent
 from bookbot.utils.venice_client import VeniceConfig
+from bookbot.database.models import Base
+
+@pytest.fixture
+async def async_session() -> AsyncSession:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    session_maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_maker() as session:
+        yield session
+    
+    await engine.dispose()
 
 @pytest.mark.asyncio
-async def test_librarian_agent_initialization():
+async def test_librarian_agent_initialization(async_session):
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     assert agent.is_active
     await agent.cleanup()
     assert not agent.is_active
 
 @pytest.mark.asyncio
-async def test_librarian_agent_add_book():
+async def test_librarian_agent_add_book(async_session):
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     
     test_book = {
@@ -44,9 +58,9 @@ async def test_librarian_agent_add_book():
     await agent.cleanup()
 
 @pytest.mark.asyncio
-async def test_librarian_agent_add_summary():
+async def test_librarian_agent_add_summary(async_session):
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     
     # First add a book
@@ -73,9 +87,9 @@ async def test_librarian_agent_add_summary():
     await agent.cleanup()
 
 @pytest.mark.asyncio
-async def test_librarian_agent_invalid_action():
+async def test_librarian_agent_invalid_action(async_session):
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     
     result = await agent.process({
@@ -126,13 +140,13 @@ def test_epub_path(tmp_path):
 async def test_librarian_agent_process_epub(test_epub_path, async_session):
     from ebooklib import epub
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     
     try:
         result = await agent.process({
             "action": "process_epub",
-            "file_path": test_epub_path
+            "file_path": str(test_epub_path)
         })
         
         assert result["status"] == "success"
@@ -157,7 +171,7 @@ async def test_librarian_agent_process_epub(test_epub_path, async_session):
 @pytest.mark.asyncio
 async def test_librarian_agent_process_epub_invalid_file(async_session, tmp_path):
     config = VeniceConfig(api_key="test_key")
-    agent = LibrarianAgent(config)
+    agent = LibrarianAgent(venice_config=config, session=async_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
     await agent.initialize()
     
     invalid_path = tmp_path / "invalid.epub"

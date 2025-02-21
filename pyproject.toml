@@ -16,11 +16,12 @@ aiohttp = "^3.9.1"
 sqlalchemy = "^2.0.25"
 aiosqlite = "^0.19.0"
 chromadb = "^0.4.22"
-pytest = "^7.4.4"
-pytest-asyncio = "^0.23.3"
+pytest = "^8.2.0"
+pytest-asyncio = "^0.25.3"
 pytest-timeout = "^2.2.0"
+pytest-cov = "^4.1.0"
+pytest-xdist = "^3.5.0"
 uvloop = "^0.21.0"
-
 numpy = "1.26.3"
 cachetools = "^5.3.2"
 aiofiles = "^23.2.1"
@@ -29,10 +30,15 @@ watchdog = "^3.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test_*.py"
+python_files = ["test_*.py"]
 addopts = "-v --tb=short --durations=10"
-asyncio_timeout = 300
 log_level = "DEBUG"
+markers = [
+    "asyncio: mark test as async/await test",
+    "timeout: mark test with timeout value",
+    "integration: mark test as integration test",
+    "unit: mark test as unit test"
+]
 filterwarnings = [
     "ignore::DeprecationWarning:chromadb.*:",
     "ignore::UserWarning:chromadb.*:",
