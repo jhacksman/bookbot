@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 import aiohttp
 import json
 import asyncio
+import hashlib
 from pathlib import Path
 from pydantic import BaseModel
 from .rate_limiter import AsyncRateLimiter, RateLimitConfig

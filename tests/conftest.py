@@ -292,6 +292,17 @@ def test_book_data() -> Dict[str, Any]:
         }
     }
 
+@pytest_asyncio.fixture
+async def mock_calibre_db(tmp_path):
+    """Fixture that provides a mock Calibre database for testing."""
+    from datetime import datetime
+    
+    db_path = str(tmp_path / "metadata.db")
+    with open(db_path, 'w') as f:
+        f.write('')  # Create empty file
+        
+    return db_path
+
 @pytest.fixture
 def test_summary_data() -> Dict[str, Any]:
     return {

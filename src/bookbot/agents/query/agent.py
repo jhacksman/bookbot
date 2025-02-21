@@ -70,7 +70,7 @@ class QueryAgent(Agent):
                 )
                 citations.append({
                     "id": citation_id,
-                    "book_id": content['book']['id'],
+                    "book_id": str(content['book']['id']),
                     "title": content['book']['title'],
                     "author": content['book']['author'],
                     "quoted_text": content['content'],

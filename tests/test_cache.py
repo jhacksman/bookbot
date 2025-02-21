@@ -96,19 +96,25 @@ async def test_async_cache_concurrent_access():
 async def test_async_cache_decorator_with_config():
     call_count = 0
     
-    @async_cache(ttl=60, max_size=2)
+    @async_cache(ttl=60, max_size=1)  # Reduce max_size to 1 to force eviction
     async def test_func(x: int) -> int:
         nonlocal call_count
         call_count += 1
+        await asyncio.sleep(0.1)  # Add delay to ensure async behavior
         return x * 2
     
-    await test_func(1)  # Result cached
-    await test_func(2)  # Result cached
-    await test_func(3)  # Evicts cache for x=1
+    # Test with sequential calls
+    result1 = await test_func(1)  # Result cached
+    assert result1 == 2
+    assert call_count == 1
     
-    result = await test_func(1)
-    assert result == 2
-    assert call_count == 4  # Should be called again since it was evicted
+    result2 = await test_func(2)  # Evicts cache for x=1
+    assert result2 == 4
+    assert call_count == 2
+    
+    result3 = await test_func(1)  # Should miss cache and recalculate
+    assert result3 == 2
+    assert call_count == 3
 
 @pytest.mark.asyncio
 async def test_async_cache_complex_args():

@@ -12,6 +12,7 @@ from ...utils.calibre_connector import CalibreConnector
 
 class LibrarianAgent(Agent):
     def __init__(self, venice_config: VeniceConfig, 
+             session: Optional[AsyncSession] = None,
              db_url: str = "sqlite+aiosqlite:///:memory:",
              calibre_path: Optional[Path] = None,
              vram_limit: float = 16.0):
@@ -19,85 +20,150 @@ class LibrarianAgent(Agent):
         self.venice = VeniceClient(venice_config)
         self.vector_store = VectorStore("librarian_agent")
         self.epub_processor = EPUBProcessor()
-        self.engine = create_async_engine(db_url, echo=True)
-        self.async_session = async_sessionmaker(
-            self.engine,
-            class_=AsyncSession,
-            expire_on_commit=False
-        )
+        
+        if session:
+            self.session = session
+            self.engine = None
+        else:
+            self.engine = create_async_engine(db_url, echo=True)
+            self.async_session = async_sessionmaker(
+                self.engine,
+                class_=AsyncSession,
+                expire_on_commit=False
+            )
+            self.session = None
+        
         self.calibre = CalibreConnector(calibre_path) if calibre_path else None
     
     async def initialize(self) -> None:
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        if hasattr(self, 'calibre'):
+        if not self.session and hasattr(self, 'engine'):
+            async with self.engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            self.session = self.async_session()
+            
+        if self.calibre:
             await self.calibre.initialize()
         self.is_active = True
     
     async def cleanup(self) -> None:
-        await self.engine.dispose()
-        if hasattr(self, 'calibre'):
-            await self.calibre.cleanup()
-        self.is_active = False
+        try:
+            if hasattr(self, 'engine') and self.engine is not None:
+                await self.engine.dispose()
+            if hasattr(self, 'calibre') and self.calibre:
+                await self.calibre.cleanup()
+        except Exception as e:
+            print(f"Warning during cleanup: {e}")
+        finally:
+            self.is_active = False
     
     async def add_book(self, book_data: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(book_data, dict):
+            return {
+                "status": "error",
+                "message": "Book data must be a dictionary"
+            }
+            
         try:
-            async with self.async_session() as session:
-                metadata = json.dumps(book_data.get("metadata")) if book_data.get("metadata") else None
-                
-                book = Book(
-                    title=book_data["title"],
-                    author=book_data.get("author"),
-                    content_hash=book_data.get("content_hash"),
-                    book_metadata=metadata,
-                    vector_id=book_data.get("vector_id")
-                )
-                session.add(book)
-                await session.commit()
-                await session.refresh(book)
+            title = str(book_data.get("title", "Unknown Title"))
+            author = str(book_data.get("author", "Unknown Author"))
+            content_hash = str(book_data.get("content_hash", ""))
+            vector_id = str(book_data.get("vector_id", ""))
+            
+            try:
+                metadata = json.dumps(book_data.get("metadata", {}))
+            except (TypeError, ValueError):
+                metadata = "{}"
+            
+            book = Book(
+                title=title,
+                author=author,
+                content_hash=content_hash,
+                book_metadata=metadata,
+                vector_id=vector_id
+            )
+            
+            if not self.session:
                 return {
-                    "book_id": book.id,
-                    "status": "success"
+                    "status": "error",
+                    "message": "Session not initialized. Call initialize() first."
                 }
+            
+            self.session.add(book)
+            await self.session.commit()
+            await self.session.refresh(book)
+            
+            if self.calibre:
+                try:
+                    await self.calibre.add_book({
+                        "title": title,
+                        "author": author,
+                        "path": book_data.get("path", ""),
+                        "format": book_data.get("format", "unknown"),
+                        "identifiers": book_data.get("identifiers", {}),
+                        "tags": book_data.get("tags", []),
+                        "series": book_data.get("series"),
+                        "series_index": book_data.get("series_index", 1.0)
+                    })
+                except Exception as e:
+                    print(f"Warning: Failed to add book to Calibre: {e}")
+            
+            return {
+                "status": "success",
+                "book_id": book.id
+            }
         except Exception as e:
+            print(f"Error adding book: {e}")
             return {
                 "status": "error",
                 "message": str(e)
             }
     
     async def add_summary(self, summary_data: Dict[str, Any]) -> Dict[str, Any]:
-        async with self.async_session() as session:
+        try:
             summary = Summary(
                 book_id=summary_data["book_id"],
                 level=summary_data["level"],
                 content=summary_data["content"],
                 vector_id=summary_data["vector_id"]
             )
-            session.add(summary)
-            await session.commit()
-            return {"summary_id": summary.id}
+            self.session.add(summary)
+            await self.session.commit()
+            await self.session.refresh(summary)
+            return {
+                "status": "success",
+                "summary_id": summary.id
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
     
     async def get_book(self, book_id: int) -> Optional[Dict[str, Any]]:
-        async with self.async_session() as session:
-            result = await session.execute(
-                select(Book).where(Book.id == book_id)
-            )
-            book = result.scalar_one_or_none()
-            if book:
-                return {
-                    "id": book.id,
-                    "title": book.title,
-                    "author": book.author,
-                    "content_hash": book.content_hash,
-                    "metadata": book.book_metadata,
-                    "vector_id": book.vector_id
-                }
-            return None
+        result = await self.session.execute(
+            select(Book).where(Book.id == book_id)
+        )
+        book = result.scalar_one_or_none()
+        if book:
+            return {
+                "id": book.id,
+                "title": book.title,
+                "author": book.author,
+                "content_hash": book.content_hash,
+                "metadata": book.book_metadata,
+                "vector_id": book.vector_id
+            }
+        return None
     
     async def process_epub(self, file_path: str) -> Dict[str, Any]:
         try:
             # Process EPUB file
             epub_data = await self.epub_processor.process_file(file_path)
+            if not epub_data or not epub_data.get("chunks"):
+                return {
+                    "status": "error",
+                    "message": "Failed to process EPUB file or no content found"
+                }
             
             # Add content chunks to vector store
             chunk_ids = await self.vector_store.add_texts(
@@ -107,16 +173,16 @@ class LibrarianAgent(Agent):
             
             # Add book to database
             book_data = {
-                "title": epub_data["metadata"]["title"],
-                "author": epub_data["metadata"]["author"],
+                "title": epub_data["metadata"].get("title", "Unknown Title"),
+                "author": epub_data["metadata"].get("author", "Unknown Author"),
                 "content_hash": epub_data["content_hash"],
                 "metadata": epub_data["metadata"],
-                "vector_id": chunk_ids[0]  # Store first chunk ID
+                "vector_id": chunk_ids[0] if chunk_ids else ""  # Store first chunk ID
             }
             
             book_result = await self.add_book(book_data)
-            if "book_id" not in book_result:
-                raise RuntimeError(f"Failed to add book: {book_result.get('message', 'Unknown error')}")
+            if book_result["status"] != "success":
+                return book_result
                 
             return {
                 "status": "success",
