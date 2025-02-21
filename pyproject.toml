@@ -33,7 +33,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --durations=10"
 log_level = "DEBUG"
-asyncio_mode = "auto"
 markers = [
     "asyncio: mark test as async/await test",
     "timeout: mark test with timeout value",
