@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..base import Agent
 from ...utils.venice_client import VeniceClient, VeniceConfig
@@ -14,7 +15,7 @@ class SelectionAgent(Agent):
         self.vector_store = VectorStore("selection_agent")
         self.session = session
         self.rate_limiter = RateLimiter(requests_per_minute=60)
-        self.cache = AsyncCache(ttl_seconds=3600, max_size=100)
+        self.cache = AsyncCache(ttl=3600, max_size=100)
         
     async def initialize(self) -> None:
         self.is_active = True
@@ -105,7 +106,7 @@ Provide evaluation as JSON with fields:
                 
                 if evaluation and "choices" in evaluation:
                     try:
-                        eval_data = eval(evaluation["choices"][0]["text"])
+                        eval_data = json.loads(evaluation["choices"][0]["text"])
                         total_score = eval_data.get("total_score", 
                                                   sum([eval_data.get("relevance_score", 0),
                                                       eval_data.get("technical_score", 0),

@@ -23,6 +23,13 @@ class RateLimiter:
         self._async_limiter = AsyncRateLimiter(self.config)
         self._loop = asyncio.get_event_loop()
     
+    async def __aenter__(self):
+        await self._async_limiter.wait_for_token()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+    
     def __enter__(self):
         self._loop.run_until_complete(self._async_limiter.wait_for_token())
         return self

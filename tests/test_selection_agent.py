@@ -32,6 +32,15 @@ async def test_selection_agent_process_success(async_session):
     agent = SelectionAgent(config, session=async_session)
     await agent.initialize()
     
+    # Mock the Venice client response
+    async def mock_generate(*args, **kwargs):
+        return {
+            "choices": [{
+                "text": '{"relevance_score": 35, "technical_score": 25, "recency_score": 12, "expertise_score": 13, "total_score": 85, "reasoning": "Highly relevant AI/ML text", "key_topics": ["deep learning", "neural networks"], "target_audience": "researchers", "prerequisites": ["calculus", "linear algebra"], "recommended_reading_order": 4}'
+            }]
+        }
+    agent.venice.generate = mock_generate
+    
     test_books = [{
         "title": "Deep Learning",
         "author": "Ian Goodfellow",
@@ -91,6 +100,15 @@ async def test_selection_agent_evaluation_caching(async_session):
     agent = SelectionAgent(config, session=async_session)
     await agent.initialize()
     
+    # Mock the Venice client response
+    async def mock_generate(*args, **kwargs):
+        return {
+            "choices": [{
+                "text": '{"relevance_score": 35, "technical_score": 25, "recency_score": 12, "expertise_score": 13, "total_score": 85, "reasoning": "Highly relevant AI/ML text", "key_topics": ["deep learning", "neural networks"], "target_audience": "researchers", "prerequisites": ["calculus", "linear algebra"], "recommended_reading_order": 4}'
+            }]
+        }
+    agent.venice.generate = mock_generate
+    
     test_book = {
         "title": "Deep Learning",
         "author": "Ian Goodfellow",
@@ -110,6 +128,15 @@ async def test_selection_agent_vector_storage(async_session):
     agent = SelectionAgent(config, session=async_session)
     await agent.initialize()
     
+    # Mock the Venice client response
+    async def mock_generate(*args, **kwargs):
+        return {
+            "choices": [{
+                "text": '{"relevance_score": 35, "technical_score": 25, "recency_score": 12, "expertise_score": 13, "total_score": 85, "reasoning": "Highly relevant AI/ML text", "key_topics": ["deep learning", "neural networks"], "target_audience": "researchers", "prerequisites": ["calculus", "linear algebra"], "recommended_reading_order": 4}'
+            }]
+        }
+    agent.venice.generate = mock_generate
+    
     test_books = [{
         "title": "Deep Learning",
         "author": "Ian Goodfellow",
@@ -126,13 +153,23 @@ async def test_selection_agent_vector_storage(async_session):
         limit=1
     )
     assert len(vectors) > 0
-    assert vectors[0].metadata["title"] == "Deep Learning"
+    assert vectors[0]["metadata"]["title"] == "Deep Learning"
 
 @pytest.mark.asyncio
 async def test_selection_agent_rate_limiting(async_session):
     config = VeniceConfig(api_key="test_key")
     agent = SelectionAgent(config, session=async_session)
     await agent.initialize()
+    
+    # Mock the Venice client response
+    async def mock_generate(*args, **kwargs):
+        await asyncio.sleep(0.2)  # Add delay to simulate API call
+        return {
+            "choices": [{
+                "text": '{"relevance_score": 35, "technical_score": 25, "recency_score": 12, "expertise_score": 13, "total_score": 85, "reasoning": "Highly relevant AI/ML text", "key_topics": ["deep learning", "neural networks"], "target_audience": "researchers", "prerequisites": ["calculus", "linear algebra"], "recommended_reading_order": 4}'
+            }]
+        }
+    agent.venice.generate = mock_generate
     
     # Create multiple books to trigger rate limiting
     test_books = [

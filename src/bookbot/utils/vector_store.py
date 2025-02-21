@@ -116,10 +116,10 @@ class VectorStore:
             logging.error(f"Failed to add texts to vector store: {str(e)}")
             raise
     
-    async def similarity_search(
+    async def search(
         self,
         query: str,
-        k: int = 4,
+        limit: int = 4,
         metadata_filter: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         try:
@@ -127,13 +127,13 @@ class VectorStore:
                 query_embedding = await self.venice_client.embed(query)
                 results = self.collection.query(
                     query_embeddings=[query_embedding["data"][0]["embedding"]],
-                    n_results=k,
+                    n_results=limit,
                     where={k: str(v) for k, v in (metadata_filter or {}).items()}
                 )
             else:
                 results = self.collection.query(
                     query_texts=[query],
-                    n_results=k,
+                    n_results=limit,
                     where={k: str(v) for k, v in (metadata_filter or {}).items()}
                 )
             
