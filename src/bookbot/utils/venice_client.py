@@ -1,10 +1,11 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 import aiohttp
 import json
 import asyncio
 import hashlib
 from pathlib import Path
 from pydantic import BaseModel
+from tenacity import retry, stop_after_attempt, wait_exponential
 from .rate_limiter import AsyncRateLimiter, RateLimitConfig
 from .token_tracker import TokenTracker
 from .cache import AsyncCache
@@ -72,11 +73,14 @@ class VeniceClient:
             )
         return self._session
     
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def generate(
         self, 
         prompt: str, 
         context: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        response_format: Optional[str] = None
     ) -> Dict[str, Any]:
         # Generate cache key
         key = hashlib.sha256(
@@ -94,11 +98,13 @@ class VeniceClient:
         payload = {
             "model": self.config.model,
             "prompt": prompt,
-            "max_tokens": self.config.max_tokens,
+            "max_tokens": max_tokens or self.config.max_tokens,
             "temperature": temperature or self.config.temperature
         }
         if context:
             payload["context"] = context
+        if response_format:
+            payload["response_format"] = response_format
         
         # For testing purposes, return mock response
         if not self.config.api_key or self.config.api_key == "test_key":
@@ -138,9 +144,13 @@ class VeniceClient:
             await self._generate_cache.set(key, result)
             return result
     
-    async def embed(self, input: str) -> Dict[str, Any]:
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    async def embed(self, input: Union[str, List[str]]) -> Dict[str, Any]:
         # Generate cache key
-        key = hashlib.sha256(input.encode()).hexdigest()
+        if isinstance(input, list):
+            key = hashlib.sha256(json.dumps(input, sort_keys=True).encode()).hexdigest()
+        else:
+            key = hashlib.sha256(input.encode()).hexdigest()
         
         # Check cache
         cached = await self._embed_cache.get(key)
@@ -158,7 +168,7 @@ class VeniceClient:
         session = await self._get_session()
         payload = {
             "model": self.config.model,
-            "input": input
+            "input": input if isinstance(input, str) else "\n".join(input)
         }
         
         async with session.post(

@@ -11,6 +11,32 @@ class RateLimitConfig:
     max_burst: int = 0
     retry_interval: float = 0.1
 
+class RateLimiter:
+    """Synchronous version of AsyncRateLimiter for compatibility"""
+    def __init__(self, requests_per_minute: int = 60):
+        self.config = RateLimitConfig(
+            requests_per_window=requests_per_minute,
+            window_seconds=60,
+            max_burst=5,
+            retry_interval=0.1
+        )
+        self._async_limiter = AsyncRateLimiter(self.config)
+        self._loop = asyncio.get_event_loop()
+    
+    async def __aenter__(self):
+        await self._async_limiter.wait_for_token()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+    
+    def __enter__(self):
+        self._loop.run_until_complete(self._async_limiter.wait_for_token())
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 class AsyncRateLimiter:
     def __init__(self, config: RateLimitConfig):
         self.config = config
