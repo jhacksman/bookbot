@@ -31,7 +31,7 @@ watchdog = "^3.0.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --tb=short --durations=10"
+addopts = "-v --tb=short --durations=10 -p pytest_asyncio"
 log_level = "DEBUG"
 markers = [
     "asyncio: mark test as async/await test",
