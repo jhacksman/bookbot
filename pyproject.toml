@@ -23,21 +23,16 @@ pytest-cov = "^4.1.0"
 pytest-xdist = "^3.5.0"
 uvloop = "^0.21.0"
 
-numpy = "1.26.3"
-cachetools = "^5.3.2"
-aiofiles = "^23.2.1"
-tenacity = "^8.2.3"
-watchdog = "^3.0.0"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test_*.py"
+python_files = ["test_*.py"]
 addopts = "-v --tb=short --durations=10"
-asyncio_timeout = 300
 log_level = "DEBUG"
 markers = [
     "asyncio: mark test as async/await test",
-    "timeout: mark test with timeout value"
+    "timeout: mark test with timeout value",
+    "integration: mark test as integration test",
+    "unit: mark test as unit test"
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:chromadb.*:",
@@ -45,6 +40,17 @@ filterwarnings = [
     "ignore::RuntimeWarning:asyncio.*:",
     "ignore::ResourceWarning:asyncio.*:"
 ]
+asyncio_mode = "auto"
+timeout = 300
+
+[tool.poetry.dependencies]
+numpy = "1.26.3"
+cachetools = "^5.3.2"
+aiofiles = "^23.2.1"
+tenacity = "^8.2.3"
+watchdog = "^3.0.0"
+
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
