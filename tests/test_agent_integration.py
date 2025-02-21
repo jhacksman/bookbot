@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+from unittest.mock import patch
 from bookbot.agents.selection.agent import SelectionAgent
 from bookbot.agents.summarization.agent import SummarizationAgent
 from bookbot.agents.librarian.agent import LibrarianAgent
@@ -44,21 +45,19 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
             async with summarization_alloc as _:
                 async with librarian_alloc as _:
                     async with query_alloc as _:
-                        # Initialize all agents
-                        selection_agent = SelectionAgent(venice_config, vram_limit=16.0)
-                        summarization_agent = SummarizationAgent(venice_config, vram_limit=16.0)
-                        librarian_agent = LibrarianAgent(venice_config, db_url="sqlite+aiosqlite:///:memory:", vram_limit=16.0)
-                        query_agent = QueryAgent(venice_config, db_session, vram_limit=16.0)
+                        # Initialize all agents with proper parameters
+                        selection_agent = SelectionAgent(venice_config=venice_config, session=db_session, vram_limit=16.0)
+                        summarization_agent = SummarizationAgent(venice_config=venice_config, session=db_session, vram_limit=16.0)
+                        librarian_agent = LibrarianAgent(venice_config=venice_config, session=db_session, db_url="sqlite+aiosqlite:///:memory:", calibre_path=None, vram_limit=16.0)
+                        query_agent = QueryAgent(venice_config=venice_config, session=db_session, vram_limit=16.0)
                         
                         agents.extend([selection_agent, summarization_agent, librarian_agent, query_agent])
                         
-                        # Initialize all agents
-                        await asyncio.gather(
-                            selection_agent.initialize(),
-                            summarization_agent.initialize(),
-                            librarian_agent.initialize(),
-                            query_agent.initialize()
-                        )
+                        # Initialize all agents sequentially to avoid SQLite concurrency issues
+                        await selection_agent.initialize()
+                        await summarization_agent.initialize()
+                        await librarian_agent.initialize()
+                        await query_agent.initialize()
                         
                         test_book = {
                             "title": "Deep Learning",
@@ -88,12 +87,19 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         assert selected_book["author"] == test_book["author"]
                         assert "content" in selected_book
                         
-                        # Test summarization
-                        summarization_result = await summarization_agent.process({
-                            "content": test_book["content"],
-                            "book_id": "test123",
-                            "title": test_book["title"]
-                        })
+                        # Test summarization with mocked Venice.ai API
+                        with patch('bookbot.utils.venice_client.VeniceClient.generate') as mock_generate, \
+                             patch('bookbot.utils.venice_client.VeniceClient.embed') as mock_embed:
+                            mock_generate.return_value = {"choices": [{"text": "Test summary content"}]}
+                            mock_embed.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+                            
+                            summarization_result = await summarization_agent.process({
+                                "content": test_book["content"],
+                                "metadata": {
+                                    "book_id": "test123",
+                                    "title": test_book["title"]
+                                }
+                            })
                         assert summarization_result["status"] == "success"
                         assert len(summarization_result["summaries"]) == 3
                         
@@ -108,10 +114,15 @@ async def test_full_pipeline(venice_config, vram_manager, db_session):
                         assert librarian_result["status"] == "success"
                         assert "book_id" in librarian_result
                         
-                        # Test querying
-                        query_result = await query_agent.process({
-                            "question": "What is deep learning and how does it relate to neural networks?"
-                        })
+                        # Test querying with mocked Venice.ai API
+                        with patch('bookbot.utils.venice_client.VeniceClient.generate') as mock_generate, \
+                             patch('bookbot.utils.venice_client.VeniceClient.embed') as mock_embed:
+                            mock_generate.return_value = {"choices": [{"text": "Deep learning is a type of neural network."}]}
+                            mock_embed.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
+                            
+                            query_result = await query_agent.process({
+                                "question": "What is deep learning and how does it relate to neural networks?"
+                            })
                         assert query_result["status"] == "success"
                         assert query_result["status"] == "success"
                         assert isinstance(query_result["response"], str)
